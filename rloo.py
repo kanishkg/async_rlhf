@@ -33,9 +33,6 @@ class ScriptArguments:
     config: str = field(default=None, metadata={"help": "Path to the optional config file"})
     vllm: bool = field(default=False)
     bok: bool = field(default=False)
-    project: str = field(default="rloo", metadata={"help": "The name of the project"})
-    entity: str = field(default="vistec", metadata={"help": "The name of the entity"})
-    run: str = field(default=None, metadata={"help": "The name of the run"})
     reward_fn: str = field(default=None, metadata={"help": "The reward function to use"})
     wandb_run_id: Optional[str] = field(default=None)
 
@@ -77,13 +74,6 @@ if __name__ == "__main__":
             config.output_dir = os.path.join(args.output_global_parent_dir, run_id, config.output_dir)
         os.environ["WANDB_RUN_ID"] = run_id + "_" + config_name
     else:
-        import wandb
-        wandb.init(
-            project=args.project,
-            entity=args.entity,
-            name=args.run,
-            id=args.wandb_run_id,
-        )
         os.environ["WANDB_RUN_ID"] = args.wandb_run_id
 
     ################
