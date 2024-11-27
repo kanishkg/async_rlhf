@@ -77,8 +77,8 @@ if __name__ == "__main__":
         )
         print("🔥🔥🔥 vllm loaded")
     else:
-        accelerate.wait_for_everyone()
         print("waiting for vllm to spin up...")
+    accelerate.wait_for_everyone()
     torch.cuda.synchronize()
 
     if args.output_global_parent_dir is not None:
