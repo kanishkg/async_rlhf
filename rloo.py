@@ -79,7 +79,6 @@ if __name__ == "__main__":
             entity=args.entity,
             name=args.run,
             id=args.wandb_run_id,
-            config=config,
         )
         os.environ["WANDB_RUN_ID"] = args.wandb_run_id
 
