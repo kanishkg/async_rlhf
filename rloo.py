@@ -1,4 +1,5 @@
 import multiprocessing
+import torch
 import os
 from dataclasses import dataclass, field
 from typing import Optional
@@ -105,8 +106,14 @@ if __name__ == "__main__":
             from tasks.countdown import CountDown
             reward_fn = CountDown.verify_answer
 
-    ref_policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path)
-    policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path)
+    ref_policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path,
+                                                    torch_dtype=torch.bfloat16,
+                                                    trust_remote_code=True,
+                                                    attn_implementation="flash_attention_2")
+    policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path,
+                                                  torch_dtype=torch.bfloat16,
+                                                  trust_remote_code=True,
+                                                  attn_implementation="flash_attention_2")
     ################
     # Dataset
     ################
