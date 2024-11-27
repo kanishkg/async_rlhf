@@ -26,7 +26,7 @@ non_eos_penalty: False
 stop_token: eos
 save_strategy: steps
 save_steps: 0.25
-hub_strategy: none
+hub_strategy: end 
 logging_steps: 100
 num_sample_generations: 5
 vllm: true
