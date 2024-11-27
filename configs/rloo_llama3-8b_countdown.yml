@@ -4,7 +4,7 @@ output_dir: rloo_llama3-8b_countdown
 run_name: rloo_llama3-8b_countdown
 project: pi-sos
 entity: cocolab
-dataset_name: countdown
+dataset_name: tasks/countdown
 dataset_test_split: val
 max_length: 2048
 bf16: True
