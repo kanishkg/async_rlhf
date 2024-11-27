@@ -60,8 +60,8 @@ if __name__ == "__main__":
     parser = TRLParser((ScriptArguments, RLOOConfig, ModelConfig))
     args, config, model_config = parser.parse_args_and_config()
 
-    accelerate = Accelerator()
-    if accelerate.is_main_process:
+    local_rank = int(os.environ['LOCAL_RANK'])
+    if local_rank == 0:
         print(f"🔥🔥🔥 vllm loading...{config.sft_model_path}")
         llm = LLM(
             model=config.sft_model_path,
@@ -75,7 +75,9 @@ if __name__ == "__main__":
         print("🔥🔥🔥 vllm loaded")
     else:
         print("waiting for vllm to spin up...")
-    accelerate.wait_for_everyone()
+
+    accelerator = Accelerator()
+    accelerator.wait_for_everyone()
     torch.cuda.synchronize()
 
     if args.output_global_parent_dir is not None:
