@@ -193,6 +193,7 @@ class RLOOTrainer(Trainer):
                 dtype="bfloat16",
                 max_model_len=2048,
                 tensor_parallel_size=1,
+                device="cuda",
             )
             self.llmp = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
             print("🔥🔥🔥 vllm loaded")
