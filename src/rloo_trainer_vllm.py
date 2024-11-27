@@ -343,7 +343,11 @@ class RLOOTrainer(Trainer):
                             # decode the responses and queries
                             response_text = tokenizer.batch_decode(postprocessed_response, skip_special_tokens=True)
                             query_text = tokenizer.batch_decode(query, skip_special_tokens=True)
-                            score = self.reward_fn(query_text, response_text)
+                            score = []
+                            for q, r in zip(query_text, response_text):
+                                s = self.reward_fn(q, r)
+                                score.append(s)
+                            
 
                         query_responses.append(query_response)
                         responses.append(response)
@@ -351,7 +355,7 @@ class RLOOTrainer(Trainer):
                         logprobs.append(logprob)
                         ref_logprobs.append(ref_logprob)
                         sequence_lengths.append(sequence_length)
-                        scores.append(score)
+                        scores.append(torch.tensor(score))
                 query_responses = torch.cat(query_responses, 0)
                 responses = torch.cat(responses, 0)
                 postprocessed_responses = torch.cat(postprocessed_responses, 0)

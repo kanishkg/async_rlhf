@@ -97,7 +97,8 @@ if __name__ == "__main__":
         reward_model = None
         assert args.reward_fn is not None, "Reward function must be provided if no reward model is provided"
         if args.reward_fn == "countdown":
-            raise NotImplementedError("Countdown reward function not implemented")
+            from tasks.countdown import CountDown
+            reward_fn = CountDown.verify_answer
 
     ref_policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path)
     policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path)
