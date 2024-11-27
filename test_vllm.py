@@ -22,8 +22,6 @@ if accelerator.is_main_process:
     vllm_single_gpu_patch()
     llm = LLM(
                 model="meta-llama/Llama-3.1-8B-Instruct",
-                revision="main",
-                tokenizer_revision="main"
                 enforce_eager=True,
                 max_num_seqs=16,
                 swap_space=64,

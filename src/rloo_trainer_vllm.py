@@ -38,6 +38,7 @@ from trl.trainer.utils import (
 from vllm import SamplingParams, LLM
 
 from src.utils import prepare_deepspeed
+from src.vllm_utils import vllm_single_gpu_patch
 
 
 INVALID_LOGPROB = 1.0
@@ -102,6 +103,7 @@ class RLOOTrainer(Trainer):
         )
         if accelerator.is_main_process:
             print("🔥🔥🔥 vllm loading...")
+            vllm_single_gpu_patch()
             self.llm = LLM(
                 model=args.sft_model_path,
                 enable_prefix_caching=True,
@@ -117,8 +119,9 @@ class RLOOTrainer(Trainer):
             self.llmp = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
             print("🔥🔥🔥 vllm loaded")
         else:
-            print("waiting for vllm to spin up...")
-        accelerator.wait_for_everyone()
+            import time
+            print("waiting for vllm to spin up... will sleep for 90 seconds")
+            time.sleep(90)
 
         args.local_batch_size = (
             args.per_device_train_batch_size * args.gradient_accumulation_steps * args.num_mini_batches
