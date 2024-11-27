@@ -86,7 +86,7 @@ class RLOOTrainer(Trainer):
         #########
         # calculate various batch sizes
         #########
-        accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps)
+        accelerator = Accelerator()
         self.accelerator = accelerator
         args.world_size = accelerator.num_processes
         args.local_batch_size = (
