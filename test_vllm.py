@@ -27,7 +27,7 @@ if accelerator.is_main_process:
                 dtype="bfloat16",
                 max_model_len=2048,
                 tensor_parallel_size=1,
-                device="cuda",
+                device="cuda:3",
     )
     # prompts = [
     #     "Hello, my name is",
