@@ -119,9 +119,9 @@ class RLOOTrainer(Trainer):
             self.llmp = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
             print("🔥🔥🔥 vllm loaded")
         else:
-            import time
+            import time as ti
             print("waiting for vllm to spin up... will sleep for 90 seconds")
-            time.sleep(90)
+            ti.sleep(90)
 
         args.local_batch_size = (
             args.per_device_train_batch_size * args.gradient_accumulation_steps * args.num_mini_batches
