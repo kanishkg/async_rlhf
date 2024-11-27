@@ -183,16 +183,16 @@ class RLOOTrainer(Trainer):
             logprobs=1,
         )
         if accelerator.is_main_process:
+            print("🔥🔥🔥 vllm loading...")
             self.llm = LLM(
                 model=args.sft_model_path,
                 enable_prefix_caching=True,
                 enforce_eager=True,
-                max_num_seqs=32,
+                max_num_seqs=16,
                 swap_space=64,
                 dtype="bfloat16",
                 max_model_len=2048,
                 tensor_parallel_size=1,
-                device=f"cuda:{accelerator.num_processes}",
             )
             self.llmp = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
             print("🔥🔥🔥 vllm loaded")
