@@ -14,7 +14,7 @@ from transformers import (
 from accelerate import Accelerator
 from trl import ModelConfig
 from trl.trainer.rloo_trainer import RLOOConfig
-from vllm import LLM
+
 
 from src.online_bok_trainer import OnlineBoKTrainer
 from src.rloo_trainer import MyRLOOTrainer as RLOOTrainer
@@ -59,26 +59,6 @@ def prepare_dataset(dataset, tokenizer):
 if __name__ == "__main__":
     parser = TRLParser((ScriptArguments, RLOOConfig, ModelConfig))
     args, config, model_config = parser.parse_args_and_config()
-
-    local_rank = int(os.environ['LOCAL_RANK'])
-    if local_rank == 0:
-        print(f"🔥🔥🔥 vllm loading...{config.sft_model_path}")
-        llm = LLM(
-            model=config.sft_model_path,
-            max_num_seqs=16,
-            swap_space=64,
-            dtype="bfloat16",
-            max_model_len=2048,
-            tensor_parallel_size=1,
-            device="cuda:3",
-        )
-        print("🔥🔥🔥 vllm loaded")
-    else:
-        print("waiting for vllm to spin up...")
-        import time
-        time.sleep(20)
-
-    torch.cuda.synchronize()
 
     if args.output_global_parent_dir is not None:
         run_id = os.path.basename(os.getcwd())
@@ -165,7 +145,6 @@ if __name__ == "__main__":
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         callbacks=[WandbLogModelConfig(model_config)],
-        llm=llm,
     )
     trainer.train()
 
