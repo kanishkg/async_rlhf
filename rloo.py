@@ -107,7 +107,7 @@ if __name__ == "__main__":
     ################
     # Dataset
     ################
-    raw_datasets = load_dataset("json", {"train": f"./{args.dataset_name}_train.jsonl", "val":f"./{args.dataset_name}_val.jsonl", "test": f"./{args.dataset_name}_test.jsonl"})
+    raw_datasets = load_dataset("json", data_files={"train": f"./{args.dataset_name}_train.jsonl", "val":f"./{args.dataset_name}_val.jsonl", "test": f"./{args.dataset_name}_test.jsonl"})
     if config.sanity_check:
         for key in raw_datasets:
             raw_datasets[key] = raw_datasets[key].select(range(1024))
