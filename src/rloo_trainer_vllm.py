@@ -2,7 +2,7 @@ import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Tuple, Union, Callable
 
 import numpy as np
 import pandas as pd
@@ -59,6 +59,7 @@ class RLOOTrainer(Trainer):
         # compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         # model_init: Optional[Callable[[torch.nn.Module], None]] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
+        reward_fn: Optional[Callable] = None,
     ) -> None:
         self.args = config
         args = config
@@ -78,6 +79,9 @@ class RLOOTrainer(Trainer):
         self.eval_dataset = eval_dataset
         self.optimizer, self.lr_scheduler = optimizers
         self.callbacks = callbacks
+        self.reward_fn = reward_fn
+        if reward_model is None:
+            assert reward_fn is not None, "reward_fn must be provided if reward_model is None"
 
         #########
         # calculate various batch sizes
@@ -191,15 +195,18 @@ class RLOOTrainer(Trainer):
             print("waiting for vllm to spin up...")
         accelerator.wait_for_everyone()
         if self.is_deepspeed_enabled:
-            self.reward_model = prepare_deepspeed(
-                self.reward_model, args.per_device_train_batch_size, config.fp16, config.bf16
-            )
+
+            if self.reward_model is not None:
+                self.reward_model = prepare_deepspeed(
+                    self.reward_model, args.per_device_train_batch_size, config.fp16, config.bf16
+                )
             self.ref_policy = prepare_deepspeed(
                 self.ref_policy, args.per_device_train_batch_size, config.fp16, config.bf16
             )
         else:
+            if self.reward_model is not None:
+                self.reward_model = self.reward_model.to(self.accelerator.device)
             self.ref_policy = self.ref_policy.to(self.accelerator.device)
-            self.reward_model = self.reward_model.to(self.accelerator.device)
 
     def get_train_dataloader(self) -> DataLoader:
         return self.dataloader
@@ -326,9 +333,16 @@ class RLOOTrainer(Trainer):
                         # Response Processing 2. run reward model on the truncated responses
                         postprocessed_query_response = torch.cat((query, postprocessed_response), 1)
                         sequence_length = first_true_indices(postprocessed_response == tokenizer.pad_token_id) - 1
-                        _, score, _ = get_reward(
-                            reward_model, postprocessed_query_response, tokenizer.pad_token_id, context_length
-                        )
+                        if reward_model is not None:
+                            _, score, _ = get_reward(
+                                reward_model, postprocessed_query_response, tokenizer.pad_token_id, context_length
+                            )
+                        else:
+                            # use reward function
+                            # decode the responses and queries
+                            response_text = tokenizer.batch_decode(postprocessed_response, skip_special_tokens=True)
+                            query_text = tokenizer.batch_decode(query, skip_special_tokens=True)
+                            score = self.reward_fn(query_text, response_text)
 
                         query_responses.append(query_response)
                         responses.append(response)
@@ -559,9 +573,16 @@ class RLOOTrainer(Trainer):
                 table["model response"].extend(gather_object(self.tokenizer.batch_decode(postprocessed_response)))
 
                 postprocessed_query_response = torch.cat((queries, postprocessed_response), 1)
-                _, score, _ = get_reward(
-                    self.reward_model, postprocessed_query_response, self.tokenizer.pad_token_id, context_length
-                )
+                if self.reward_model is not None:
+                    _, score, _ = get_reward(
+                        self.reward_model, postprocessed_query_response, self.tokenizer.pad_token_id, context_length
+                    )
+                else:
+                    # use reward function
+                    # decode the responses and queries
+                    response_text = tokenizer.batch_decode(postprocessed_response, skip_special_tokens=True)
+                    query_response_text = tokenizer.batch_decode(queries, skip_special_tokens=True)
+                    score = self.reward_fn(query_response_text, response_text)
                 table["score"].extend(self.accelerator.gather(score).float().cpu().numpy())
 
             if sampling:
