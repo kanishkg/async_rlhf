@@ -12,13 +12,14 @@ from transformers import (
 )
 
 from vllm import LLM
+from src.vllm_utils import vllm_single_gpu_patch
 import sglang as sgl
 from accelerate import Accelerator
 
 accelerator = Accelerator()
-# if accelerator.is_main_process:
-if True:
+if accelerator.is_main_process:
     print("Hello from main process")
+    vllm_single_gpu_patch()
     llm = LLM(
                 model="meta-llama/Llama-3.1-8B-Instruct",
                 max_num_seqs=16,
