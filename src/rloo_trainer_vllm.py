@@ -481,13 +481,13 @@ class RLOOTrainer(Trainer):
                 accelerator.print(f"{rlhf_reward_mean=}")
                 mean_kl = kl.sum(1).mean()
                 mean_entropy = (-logprobs).sum(1).mean()
-                mean_non_score_reward = non_score_reward.mean()
+                # mean_non_score_reward = non_score_reward.mean()
                 eps = int(global_step / (time.time() - start_time))
                 metrics = {}
                 metrics["eps"] = eps
                 metrics["objective/kl"] = self.accelerator.gather(mean_kl).mean().item()
                 metrics["objective/entropy"] = self.accelerator.gather(mean_entropy).mean().item()
-                metrics["objective/non_score_reward"] = self.accelerator.gather(mean_non_score_reward).mean().item()
+                # metrics["objective/non_score_reward"] = self.accelerator.gather(mean_non_score_reward).mean().item()
                 metrics["objective/rlhf_reward"] = self.accelerator.gather(rlhf_reward).mean().item()
                 metrics["objective/scores"] = self.accelerator.gather(scores.mean()).mean().item()
                 metrics["policy/approxkl_avg"] = self.accelerator.gather(approxkl_stats).mean().item()
