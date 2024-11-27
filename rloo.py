@@ -92,7 +92,7 @@ if __name__ == "__main__":
     )
 
     reward_fn = None
-    if args.reward_model_path is not None:
+    if args.reward_fn is not None:
         reward_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1)
     else:
         print("No reward model provided, setting to None")
