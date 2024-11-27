@@ -56,6 +56,8 @@ if __name__ == "__main__":
     parser = TRLParser((ScriptArguments, RLOOConfig, ModelConfig))
     args, config, model_config = parser.parse_args_and_config()
 
+
+
     if args.output_global_parent_dir is not None:
         run_id = os.path.basename(os.getcwd())
         config.output_dir = os.path.join(args.output_global_parent_dir, run_id, config.output_dir)
@@ -68,6 +70,14 @@ if __name__ == "__main__":
             config.output_dir = os.path.join(args.output_global_parent_dir, run_id, config.output_dir)
         os.environ["WANDB_RUN_ID"] = run_id + "_" + config_name
     else:
+        import wandb
+        wandb.init(
+            project=args.project,
+            entity=args.entity,
+            name=args.run_name,
+            id=args.wandb_run_id,
+            config=config,
+        )
         os.environ["WANDB_RUN_ID"] = args.wandb_run_id
 
     ################
@@ -94,7 +104,7 @@ if __name__ == "__main__":
     ################
     # Dataset
     ################
-    raw_datasets = load_dataset(args.dataset_name)
+    raw_datasets = load_dataset("json", {"train": f"./{args.dataset_name}_train.jsonl", "val":f"./{args.dataset_name}_val.jsonl", "test": f"./{args.dataset_name}_test.jsonl"})
     if config.sanity_check:
         for key in raw_datasets:
             raw_datasets[key] = raw_datasets[key].select(range(1024))
