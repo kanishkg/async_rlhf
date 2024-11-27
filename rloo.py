@@ -9,6 +9,8 @@ from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
 )
+
+from accelerate import Accelerator
 from trl import ModelConfig
 from trl.trainer.rloo_trainer import RLOOConfig
 
@@ -60,6 +62,7 @@ if __name__ == "__main__":
     args, config, model_config = parser.parse_args_and_config()
 
 
+    accelerator = Accelerator()
 
     if args.output_global_parent_dir is not None:
         run_id = os.path.basename(os.getcwd())
