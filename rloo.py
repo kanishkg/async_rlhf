@@ -65,8 +65,6 @@ if __name__ == "__main__":
         print(f"🔥🔥🔥 vllm loading...{config.sft_model_path}")
         llm = LLM(
             model=config.sft_model_path,
-            enable_prefix_caching=True,
-            enforce_eager=True,
             max_num_seqs=16,
             swap_space=64,
             dtype="bfloat16",
