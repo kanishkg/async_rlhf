@@ -377,9 +377,12 @@ class RLOOTrainer(Trainer):
                 ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask, INVALID_LOGPROB)
 
                 # 4. compute rewards
-                kl = logprobs - ref_logprobs
-                non_score_reward = (-args.kl_coef * kl).sum(1)
-                rlhf_reward = scores + non_score_reward
+                # kl = logprobs - ref_logprobs
+                # non_score_reward = (-args.kl_coef * kl).sum(1)
+                # rlhf_reward = scores + non_score_reward
+
+                # KG: I think the above is wrong; we should not add KL divergence to the reward
+                rlhf_reward = scores
 
                 # we generated `self.args.rloo_k` many responses per prompt
                 # now we can implement the RLOO loss by subtracting the reward of
@@ -420,6 +423,11 @@ class RLOOTrainer(Trainer):
                             new_logprobs = torch.masked_fill(
                                 new_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB
                             )
+
+                            # KG: compute approx kl
+                            kl = 0.5 * (new_logprobs - ref_logprobs[micro_batch_inds])**2
+                            kl = kl.sum(1)
+
                             new_ratio = (new_logprobs - mb_logprobs).exp()
                             new_logprobs = new_logprobs.sum(1)
                             mb_logprobs = mb_logprobs.sum(1)
@@ -430,7 +438,10 @@ class RLOOTrainer(Trainer):
                             pg_loss_max = torch.max(pg_losses, pg_losses2)
                             pg_loss = pg_loss_max.mean()
                             pg_clipfrac = (pg_losses2 > pg_losses).float().mean()
-                            loss = pg_loss
+
+                            # KG: We should add kl directly to the loss
+                            loss = pg_loss + args.kl_coef * kl.mean()
+
                             accelerator.backward(loss)
                             optimizer.step()
                             optimizer.zero_grad()
