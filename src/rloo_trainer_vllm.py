@@ -182,6 +182,7 @@ class RLOOTrainer(Trainer):
             include_stop_str_in_output=True,
             logprobs=1,
         )
+        accelerator.wait_for_everyone()
         if accelerator.is_main_process:
             print("🔥🔥🔥 vllm loading...")
             self.llm = LLM(
