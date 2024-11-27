@@ -111,6 +111,38 @@ class RLOOTrainer(Trainer):
             self.sample_generations_freq = max(1, args.num_updates // args.num_sample_generations)
 
         #########
+        ### vllm
+        #########
+        self.sampling_params = SamplingParams(
+            temperature=args.temperature,
+            top_p=1.0,
+            max_tokens=args.response_length,
+            include_stop_str_in_output=True,
+            logprobs=1,
+        )
+        accelerator.wait_for_everyone()
+        if accelerator.is_main_process:
+            print("🔥🔥🔥 vllm loading...")
+            self.llm = LLM(
+                model=args.sft_model_path,
+                enable_prefix_caching=True,
+                enforce_eager=True,
+                max_num_seqs=16,
+                swap_space=64,
+                dtype="bfloat16",
+                max_model_len=2048,
+                tensor_parallel_size=1,
+                device="cuda:3",
+            )
+            print("🔥🔥🔥 model initialized getting llmp")
+            self.llmp = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
+            print("🔥🔥🔥 vllm loaded")
+        else:
+            print("waiting for vllm to spin up...")
+        torch.cuda.synchronize
+        accelerator.wait_for_everyone()
+
+        #########
         # setup model, optimizer, and others
         #########
         for module in [policy, ref_policy, reward_model]:
@@ -172,36 +204,7 @@ class RLOOTrainer(Trainer):
         if self.is_deepspeed_enabled:  # need to use for Trainer.save_model / push_to_hub
             self.deepspeed = self.model
 
-        #########
-        ### vllm
-        #########
-        self.sampling_params = SamplingParams(
-            temperature=args.temperature,
-            top_p=1.0,
-            max_tokens=args.response_length,
-            include_stop_str_in_output=True,
-            logprobs=1,
-        )
-        accelerator.wait_for_everyone()
-        if accelerator.is_main_process:
-            print("🔥🔥🔥 vllm loading...")
-            self.llm = LLM(
-                model=args.sft_model_path,
-                enable_prefix_caching=True,
-                enforce_eager=True,
-                max_num_seqs=16,
-                swap_space=64,
-                dtype="bfloat16",
-                max_model_len=2048,
-                tensor_parallel_size=1,
-                device="cuda:3",
-            )
-            print("🔥🔥🔥 model initialized getting llmp")
-            self.llmp = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
-            print("🔥🔥🔥 vllm loaded")
-        else:
-            print("waiting for vllm to spin up...")
-        accelerator.wait_for_everyone()
+
         if self.is_deepspeed_enabled:
 
             if self.reward_model is not None:
