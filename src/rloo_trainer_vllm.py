@@ -187,6 +187,12 @@ class RLOOTrainer(Trainer):
                 model=args.sft_model_path,
                 # revision=args.sft_model_revision,
                 # tokenizer_revision=args.sft_model_revision,
+                enable_prefix_caching=True,
+                enforce_eager=True,
+                max_num_seqs=32,
+                swap_space=64,
+                dtype="bfloat16",
+                max_model_len=2048,
                 tensor_parallel_size=1,
                 device=f"cuda:{accelerator.num_processes}",
             )
