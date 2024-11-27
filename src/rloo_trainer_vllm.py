@@ -35,7 +35,7 @@ from trl.trainer.utils import (
     print_rich_table,
     truncate_response,
 )
-from vllm import SamplingParams, SingleGPULLM
+from vllm import SamplingParams, LLM
 
 from src.utils import prepare_deepspeed
 
@@ -183,7 +183,7 @@ class RLOOTrainer(Trainer):
             logprobs=1,
         )
         if accelerator.is_main_process:
-            self.llm = SingleGPULLM(
+            self.llm = LLM(
                 model=args.sft_model_path,
                 # revision=args.sft_model_revision,
                 # tokenizer_revision=args.sft_model_revision,
