@@ -30,7 +30,7 @@ class ScriptArguments:
     config: str = field(default=None, metadata={"help": "Path to the optional config file"})
     vllm: bool = field(default=False)
     bok: bool = field(default=False)
-    project_name: str = field(default="rloo", metadata={"help": "The name of the project"})
+    project: str = field(default="rloo", metadata={"help": "The name of the project"})
     entity: str = field(default="vistec", metadata={"help": "The name of the entity"})
     reward_fn: str = field(default=None, metadata={"help": "The reward function to use"})
     wandb_run_id: Optional[str] = field(default=None)
