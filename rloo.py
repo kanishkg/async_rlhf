@@ -60,7 +60,6 @@ if __name__ == "__main__":
     parser = TRLParser((ScriptArguments, RLOOConfig, ModelConfig))
     args, config, model_config = parser.parse_args_and_config()
 
-
     accelerate = Accelerator()
     if accelerate.is_main_process:
         print(f"🔥🔥🔥 vllm loading...{config.sft_model_path}")
