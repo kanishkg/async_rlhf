@@ -2,6 +2,7 @@ output_global_parent_dir: /scr/kanishkg/rloo/
 wandb_run_id: rloo_llama3-8b_countdown 
 output_dir: rloo_llama3-8b_countdown
 run_name: rloo_llama3-8b_countdown
+run: rloo_llama3-8b_countdown
 project: pi-sos
 entity: cocolab
 dataset_name: tasks/countdown

@@ -32,7 +32,7 @@ class ScriptArguments:
     bok: bool = field(default=False)
     project: str = field(default="rloo", metadata={"help": "The name of the project"})
     entity: str = field(default="vistec", metadata={"help": "The name of the entity"})
-    run_name: str = field(default=None, metadata={"help": "The name of the run"})
+    run: str = field(default=None, metadata={"help": "The name of the run"})
     reward_fn: str = field(default=None, metadata={"help": "The reward function to use"})
     wandb_run_id: Optional[str] = field(default=None)
 
@@ -77,7 +77,7 @@ if __name__ == "__main__":
         wandb.init(
             project=args.project,
             entity=args.entity,
-            name=args.run_name,
+            name=args.run,
             id=args.wandb_run_id,
             config=config,
         )
