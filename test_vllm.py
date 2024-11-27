@@ -22,6 +22,7 @@ if accelerator.is_main_process:
     vllm_single_gpu_patch()
     llm = LLM(
                 model="meta-llama/Llama-3.1-8B-Instruct",
+                enforce_eager=True,
                 max_num_seqs=16,
                 swap_space=64,
                 dtype="bfloat16",
@@ -45,5 +46,4 @@ if accelerator.is_main_process:
 else:
     print("Hello from subprocess")
 
-accelerator.wait_for_everyone()
 print("All processes are ready")
