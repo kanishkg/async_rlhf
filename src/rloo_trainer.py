@@ -4,7 +4,7 @@ import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Callable
 
 import numpy as np
 import pandas as pd
@@ -67,6 +67,7 @@ class MyRLOOTrainer(Trainer):
         ),
         # compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         # model_init: Optional[Callable[[torch.nn.Module], None]] = None,
+        reward_fn: Optional[Callable] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
     ) -> None:
         self.args = config

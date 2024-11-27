@@ -14,6 +14,7 @@ from trl.trainer.rloo_trainer import RLOOConfig
 
 from src.online_bok_trainer import OnlineBoKTrainer
 from src.rloo_trainer import MyRLOOTrainer as RLOOTrainer
+from src.rloo_trainer_vllm import RLOOTrainer as VLLMRLOOTrainer
 from src.utils import TRLParser, WandbLogModelConfig
 
 
@@ -29,6 +30,7 @@ class ScriptArguments:
     config: str = field(default=None, metadata={"help": "Path to the optional config file"})
     vllm: bool = field(default=False)
     bok: bool = field(default=False)
+    reward_fn: str = field(default=None, metadata={"help": "The reward function to use"})
     wandb_run_id: Optional[str] = field(default=None)
 
 
@@ -77,7 +79,16 @@ if __name__ == "__main__":
         trust_remote_code=True,
     )
 
-    reward_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1)
+    reward_fn = None
+    if args.reward_model_path is not None:
+        reward_model = AutoModelForSequenceClassification.from_pretrained(config.reward_model_path, num_labels=1)
+    else:
+        print("No reward model provided, setting to None")
+        reward_model = None
+        assert args.reward_fn is not None, "Reward function must be provided if no reward model is provided"
+        if args.reward_fn == "countdown":
+            raise NotImplementedError("Countdown reward function not implemented")
+
     ref_policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path)
     policy = AutoModelForCausalLM.from_pretrained(config.sft_model_path)
     ################
@@ -108,13 +119,17 @@ if __name__ == "__main__":
     if args.bok:
         TrainerCls = OnlineBoKTrainer
     else:
-        TrainerCls = RLOOTrainer
+        if args.vllm:
+            TrainerCls = VLLMRLOOTrainer
+        else:
+            TrainerCls = RLOOTrainer
 
     trainer = TrainerCls(
         config=config,
         tokenizer=tokenizer,
         policy=policy,
         ref_policy=ref_policy,
+        reward_fn=reward_fn,
         reward_model=reward_model,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,

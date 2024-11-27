@@ -114,7 +114,8 @@ class RLOOTrainer(Trainer):
         # setup model, optimizer, and others
         #########
         for module in [policy, ref_policy, reward_model]:
-            disable_dropout_in_model(module)
+            if module is not None:
+                disable_dropout_in_model(module)
         if args.stop_token and args.stop_token == "eos":
             args.stop_token_id = tokenizer.eos_token_id
         self.model = policy
