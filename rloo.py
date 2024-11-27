@@ -70,7 +70,7 @@ if __name__ == "__main__":
             dtype="bfloat16",
             max_model_len=2048,
             tensor_parallel_size=1,
-            device="cuda:3",
+            device="cuda:0",
         )
         print("🔥🔥🔥 vllm loaded")
     else:
