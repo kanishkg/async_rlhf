@@ -20,7 +20,7 @@ model_name_or_path: meta-llama/Llama-3.1-8B-Instruct
 sft_model_path: meta-llama/Llama-3.1-8B-Instruct 
 reward_fn: countdown
 local_rollout_forward_batch_size: 8
-non_eos_penalty: False
+# non_eos_penalty: False
 stop_token: eos
 save_strategy: steps
 save_steps: 0.25
