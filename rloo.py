@@ -61,8 +61,8 @@ if __name__ == "__main__":
     args, config, model_config = parser.parse_args_and_config()
 
 
-
-    if int(os.environ.get("LOCAL_RANK", "0")) == 0:
+    accelerate = Accelerator()
+    if accelerate.is_main_process:
         print(f"🔥🔥🔥 vllm loading...{config.sft_model_path}")
         llm = LLM(
             model=config.sft_model_path,
@@ -77,6 +77,7 @@ if __name__ == "__main__":
         )
         print("🔥🔥🔥 vllm loaded")
     else:
+        accelerate.wait_for_everyone()
         print("waiting for vllm to spin up...")
     torch.cuda.synchronize()
 
