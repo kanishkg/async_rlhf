@@ -29,4 +29,5 @@ save_steps: 0.25
 hub_strategy: none
 logging_steps: 100
 num_sample_generations: 5
+vllm: true
 rloo_k: 8
