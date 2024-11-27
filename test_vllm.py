@@ -24,7 +24,7 @@ if accelerator.is_main_process:
                 dtype="bfloat16",
                 max_model_len=2048,
                 tensor_parallel_size=1,
-                device="cuda:3",
+                device="cuda",
     )
 else:
     print("Hello from subprocess")
