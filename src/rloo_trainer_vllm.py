@@ -185,8 +185,6 @@ class RLOOTrainer(Trainer):
         if accelerator.is_main_process:
             self.llm = LLM(
                 model=args.sft_model_path,
-                # revision=args.sft_model_revision,
-                # tokenizer_revision=args.sft_model_revision,
                 enable_prefix_caching=True,
                 enforce_eager=True,
                 max_num_seqs=32,
