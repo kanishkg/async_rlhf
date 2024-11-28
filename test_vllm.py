@@ -54,6 +54,8 @@ if accelerator.is_main_process:
     token_ids = [mi[1] for mi in meta_info]
     print(logprobs)
     print(token_ids)
+    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.1-8B-Instruct")
+    print(tokenizer.decode(token_ids))
 
 
     # vllm_single_gpu_patch()
