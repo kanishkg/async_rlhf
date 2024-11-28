@@ -389,6 +389,7 @@ class RLOOTrainer(Trainer):
                             ref_logprobs.append(ref_logprob)
                             sequence_lengths.append(sequence_length)
                             scores.append(torch.tensor(score))
+                accelerator.wait_for_everyone()
                 query_responses = torch.cat(query_responses, 0)
                 responses = torch.cat(responses, 0)
                 postprocessed_responses = torch.cat(postprocessed_responses, 0)
