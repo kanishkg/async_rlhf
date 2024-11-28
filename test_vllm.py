@@ -52,6 +52,8 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
 
 def main():
     vllm_single_gpu_patch()
+    model = AutoModelForCausalLM.from_pretrained("/scr/kanishkg/rloo_temp")
+    model.save_pretrained("/scr/kanishkg/rloo_temp")
     param_prompt_Q = queue.Queue(maxsize=1)
     thread = threading.Thread(
                 target=vllm_generate,
@@ -66,9 +68,7 @@ def main():
     thread.start()
 
     time.sleep(5)
-    model = AutoModelForCausalLM.from_pretrained("/scr/kanishkg/rloo_temp")
     print("saving model")
-    model.save_pretrained("/scr/kanishkg/rloo_temp")
     param_prompt_Q.put(model.named_parameters.items())
     print("model saved")
 
