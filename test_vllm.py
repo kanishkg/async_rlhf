@@ -83,7 +83,7 @@ def main():
     param_prompt_Q.put((model.named_parameters(), prompts))
     print("🔥🔥🔥 Weights are in memory")
     respones = response_ids_Q.get()
-    print(respones)
+    # print(respones)
 
 if __name__ == "__main__":
     main()
