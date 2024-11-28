@@ -270,72 +270,73 @@ class RLOOTrainer(Trainer):
                 scores = []
                 sequence_lengths = []
                 # save model parameters
-                self.accelerator.wait_for_everyone()
-                if self.accelerator.is_main_process:
-                    # saving temp model
-                    print("🔥🔥🔥 Saving model")
-                    start_time = time.time()
-                    save_path = "/scr/rloo_tmp/"
-                    accelerator.save_model(model, save_path)
-                    print(f"Time to save model: {time.time() - start_time:.2f} seconds")
+                accelerator.wait_for_everyone()
 
-                    # update sglang model
-                    print("🔥🔥🔥 Updating weights")
-                    start_time = time.time()
-                    data = { "model_path": save_path }
-                    response = requests.post(self.url+'/update_weights', json=data)
-                    print_highlight(response.text)
-                    assert response.json()["success"] is True
-                    assert response.json()["message"] == "Succeeded to update model weights."
-                    assert response.json().keys() == {"success", "message"}
-                    print(f"Time to load weights: {time.time() - start_time:.2f} seconds")
+                with unwrap_model_for_generation(model, self.accelerator) as unwrapped_model:
+                    if self.accelerator.is_main_process:
+                        # saving temp model
+                        print("🔥🔥🔥 Saving model")
+                        start_time = time.time()
+                        save_path = "/scr/rloo_tmp/"
+                        unwrapped_model.save_pretrained(save_path, save_function=accelerator.save)
+                        print(f"Time to save model: {time.time() - start_time:.2f} seconds")
 
-                    g_queries_list = gather_object(queries.tolist())
+                        # update sglang model
+                        print("🔥🔥🔥 Updating weights")
+                        start_time = time.time()
+                        data = { "model_path": save_path }
+                        response = requests.post(self.url+'/update_weights', json=data)
+                        print_highlight(response.text)
+                        assert response.json()["success"] is True
+                        assert response.json()["message"] == "Succeeded to update model weights."
+                        assert response.json().keys() == {"success", "message"}
+                        print(f"Time to load weights: {time.time() - start_time:.2f} seconds")
 
-                    g_queries_list = [
-                        [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
-                        for item in g_queries_list
-                    ]
-                    request_url = self.url + "/generate"
+                        g_queries_list = gather_object(queries.tolist())
 
-                    def send_request(query):
-                        data = {
-                            "input_ids": query,
-                            "sampling_params": self.sampling_params,
-                        }
-                        response = requests.post(request_url, json=data)
-                        response = response.json()["text"]
-                        return response
+                        g_queries_list = [
+                            [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
+                            for item in g_queries_list
+                        ]
+                        request_url = self.url + "/generate"
 
-                    # send request to sglang in parallel
-                    # TODO: Check if this keeps the order of the queries
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=64) as executor:
-                        outputs = list(executor.map(send_request, g_queries_list))
-                    # outputs = self.llm.generate(
-                    #     prompt_token_ids=g_queries_list, sampling_params=self.sampling_params
-                    # )
-                    tokenizer.pad_token_id = tokenizer.eos_token_id
-                    padded_response_token_ids = tokenizer(outputs, return_tensors="pt", max_length=args.response_length, padding="max_length", padding_side="right")["input_ids"]
-                    padded_response_token_ids = padded_response_token_ids.to(device)
+                        def send_request(query):
+                            data = {
+                                "input_ids": query,
+                                "sampling_params": self.sampling_params,
+                            }
+                            response = requests.post(request_url, json=data)
+                            response = response.json()["text"]
+                            return response
 
-                    # padded_response_token_ids = []
-                    # for token_ids in output_token_ids:
-                    #     DUMMY_PAD_TOKEN = 0  # we can't use tokenizer.pad_token_id because it's outside vocab and `torch.gather(all_logprob, 2, response.unsqueeze(-1))` will error out
-                    #     padded_token_ids = token_ids + [DUMMY_PAD_TOKEN] * (args.response_length - len(token_ids))
-                    #     padded_response_token_ids.append(padded_token_ids)
-                    # padded_response_token_ids = torch.tensor(padded_response_token_ids, device=device)
-                    g_responses[:] = padded_response_token_ids
+                        # send request to sglang in parallel
+                        # TODO: Check if this keeps the order of the queries
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=64) as executor:
+                            outputs = list(executor.map(send_request, g_queries_list))
+                        # outputs = self.llm.generate(
+                        #     prompt_token_ids=g_queries_list, sampling_params=self.sampling_params
+                        # )
+                        tokenizer.pad_token_id = tokenizer.eos_token_id
+                        padded_response_token_ids = tokenizer(outputs, return_tensors="pt", max_length=args.response_length, padding="max_length", padding_side="right")["input_ids"]
+                        padded_response_token_ids = padded_response_token_ids.to(device)
 
-                    broadcast(g_responses, 0)
-                    local_responses = g_responses[
-                        accelerator.local_process_index
-                        * queries.shape[0] : (accelerator.local_process_index + 1)
-                        * queries.shape[0]
-                    ]
-                    # if args.remove_duplicate_response_pad_tokens: # NOTE: micro optimization: remove the pad to longest
-                    #     local_responses = local_responses[:, :(local_responses != tokenizer.pad_token_id).sum(1).max()]
-                    queries_responses = torch.cat((queries, local_responses), 1)
-                    with unwrap_model_for_generation(model, self.accelerator) as unwrapped_model:
+                        # padded_response_token_ids = []
+                        # for token_ids in output_token_ids:
+                        #     DUMMY_PAD_TOKEN = 0  # we can't use tokenizer.pad_token_id because it's outside vocab and `torch.gather(all_logprob, 2, response.unsqueeze(-1))` will error out
+                        #     padded_token_ids = token_ids + [DUMMY_PAD_TOKEN] * (args.response_length - len(token_ids))
+                        #     padded_response_token_ids.append(padded_token_ids)
+                        # padded_response_token_ids = torch.tensor(padded_response_token_ids, device=device)
+                        g_responses[:] = padded_response_token_ids
+
+                        broadcast(g_responses, 0)
+                        local_responses = g_responses[
+                            accelerator.local_process_index
+                            * queries.shape[0] : (accelerator.local_process_index + 1)
+                            * queries.shape[0]
+                        ]
+                        # if args.remove_duplicate_response_pad_tokens: # NOTE: micro optimization: remove the pad to longest
+                        #     local_responses = local_responses[:, :(local_responses != tokenizer.pad_token_id).sum(1).max()]
+                        queries_responses = torch.cat((queries, local_responses), 1)
                         for i in range(0, queries.shape[0], args.local_rollout_forward_batch_size):
                             query = queries[i : i + args.local_rollout_forward_batch_size]
                             query_response = queries_responses[i : i + args.local_rollout_forward_batch_size]
