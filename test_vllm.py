@@ -15,10 +15,15 @@ from transformers import (
 from vllm import LLM
 from src.vllm_utils import vllm_single_gpu_patch
 import sglang as sgl
+from sglang.utils import (
+    execute_shell_command,
+    wait_for_server,
+    terminate_process,
+    print_highlight,
+)
 from accelerate import Accelerator
 
 def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vllm_gpu_memory_utilization: float):
-        
     llm = LLM(
         model=model_name_or_path,
         revision="main",
@@ -35,27 +40,19 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
 accelerator = Accelerator()
 if accelerator.is_main_process:
     print("Hello from main process")
-    vllm_single_gpu_patch()
-    thread = threading.Thread(
-                target=vllm_generate,
-                args=(
-                    "meta-llama/Llama-3.1-8B-Instruct",
-                    "cuda:3",
-                    "bfloat16",
-                    0.95,
-                ),
-            )
-    thread.start()
-    # llm = LLM(
-    #             model="meta-llama/Llama-3.1-8B-Instruct",
-    #             enforce_eager=True,
-    #             max_num_seqs=16,
-    #             swap_space=64,
-    #             dtype="bfloat16",
-    #             max_model_len=2048,
-    #             tensor_parallel_size=1,
-    #             device="cuda:3",
-    # )
+    server_process = execute_shell_command(f"python -m sglang.launch_server --model-path meta-llama/Llama-3.1-8B-Instruct --port=30010")
+    wait_for_server("http://localhost:30010")
+    # vllm_single_gpu_patch()
+    # thread = threading.Thread(
+    #             target=vllm_generate,
+    #             args=(
+    #                 "meta-llama/Llama-3.1-8B-Instruct",
+    #                 "cuda:3",
+    #                 "bfloat16",
+    #                 0.95,
+    #             ),
+    #         )
+    # thread.start()
 
 else:
     print("Hello from subprocess")

@@ -3,6 +3,8 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional, Tuple, Union, Callable
+import queue
+import threading
 
 import numpy as np
 import pandas as pd
@@ -91,37 +93,6 @@ class RLOOTrainer(Trainer):
         self.accelerator = accelerator
         args.world_size = accelerator.num_processes
         
-        #########
-        ### vllm
-        #########
-        self.sampling_params = SamplingParams(
-            temperature=args.temperature,
-            top_p=1.0,
-            max_tokens=args.response_length,
-            include_stop_str_in_output=True,
-            logprobs=1,
-        )
-        if accelerator.is_main_process:
-            print("🔥🔥🔥 vllm loading...")
-            vllm_single_gpu_patch()
-            self.llm = LLM(
-                model=args.sft_model_path,
-                enable_prefix_caching=True,
-                enforce_eager=True,
-                max_num_seqs=16,
-                swap_space=64,
-                dtype="bfloat16",
-                max_model_len=2048,
-                tensor_parallel_size=1,
-                device="cuda:3",
-            )
-            print("🔥🔥🔥 model initialized getting llmp")
-            self.llmp = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
-            print("🔥🔥🔥 vllm loaded")
-        else:
-            import time as ti
-            print("waiting for vllm to spin up... will sleep for 90 seconds")
-            ti.sleep(90)
 
         args.local_batch_size = (
             args.per_device_train_batch_size * args.gradient_accumulation_steps * args.num_mini_batches
@@ -245,6 +216,30 @@ class RLOOTrainer(Trainer):
                 yield from dataloader
 
         iter_dataloader = iter(repeat_generator())
+
+        #########
+        ### vllm
+        #########
+        if accelerator.is_main_process:
+            vllm_device = f"cuda:{accelerator.num_processes}"
+            response_ids_Q = queue.Queue(maxsize=1)
+            param_prompt_Q = queue.Queue(maxsize=1)
+            thread = threading.Thread(
+                target=vllm_generate,
+                args=(
+                    args.sft_model_path,
+                    vllm_device,
+                    0.95,
+                    "bfloat16",
+                    response_ids_Q,
+                    param_prompt_Q,
+                    self.state.logging_steps,
+                    args.temperature,
+                    args.response_length,
+                ),
+            )
+            thread.start()
+
 
         accelerator.print("===training policy===")
         global_step = 0
@@ -625,6 +620,62 @@ class RLOOTrainer(Trainer):
 
             if wandb.run is not None:
                 wandb.log({"completions": wandb.Table(dataframe=df)})
+
+def vllm_generate(
+    model_name_or_path: str,
+    vllm_device: str,
+    vllm_gpu_memory_utilization: float,
+    vllm_dtype: str,
+    response_ids_Q: queue.Queue,
+    param_prompt_Q: queue.Queue,
+    logging_steps: int,
+    temperature: float,
+    response_length: int,
+):
+    vllm_single_gpu_patch()
+    generation_config = SamplingParams(
+        temperature=(temperature + 1e-7),
+        top_p=1.0,
+        max_tokens=response_length,
+        include_stop_str_in_output=True,
+    )
+
+    llm = LLM(
+        model=model_name_or_path,
+        revision="main",
+        tokenizer_revision="main",
+        tensor_parallel_size=1,
+        device=vllm_device,
+        dtype=vllm_dtype,
+        gpu_memory_utilization=vllm_gpu_memory_utilization,
+    )
+    print(f"🔥🔥🔥 vllm loaded in {vllm_dtype}")
+    llmp = llm.llm_engine.model_executor.driver_worker.model_runner.model
+    i = 0
+    while True:
+        i += 1
+        model_named_parameters, g_queries_list = param_prompt_Q.get()
+        # print("got queries==================")
+        if model_named_parameters is None and g_queries_list is None:
+            print("model params and queries are None, exiting")
+            break
+
+        vllm_start_time = time.time()
+        if i > 2:
+            # print("🔥🔥🔥 Loading weights using shared memory;" "we expect the generations to be completely different")
+            llmp.load_weights(model_named_parameters)
+            print(f"load weights took: {time.time() - vllm_start_time:.2f} seconds")
+
+        outputs = llm.generate(prompt_token_ids=g_queries_list, sampling_params=generation_config, use_tqdm=False)
+        if i % logging_steps == 0:
+            print(
+                f"🏃🏃🏃 load and gen of {len(g_queries_list)} prompts took: {time.time() - vllm_start_time:.2f} seconds"
+            )
+        response_token_ids = []
+        for output in outputs:
+            response_token_ids.append(output.outputs[0].token_ids)
+
+        response_ids_Q.put(response_token_ids)
 
 
 if __name__ == "__main__":
