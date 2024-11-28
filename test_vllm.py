@@ -55,7 +55,7 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
 
             llmp.load_weights(model_named_parameters)
             print(f"load weights took: {time.time() - vllm_start_time:.2f} seconds")
-        outputs = llm.generate(prompt_token_ids=queries_list, sampling_params=sampling_params, use_tqdm=False)
+        outputs = llm.generate(queries_list, sampling_params=sampling_params, use_tqdm=False)
         responses = [output[0].text for output in outputs]
         response_ids_Q.put(responses)
 
