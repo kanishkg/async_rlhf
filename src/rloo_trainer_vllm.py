@@ -312,6 +312,7 @@ class RLOOTrainer(Trainer):
 
                         # send request to sglang in parallel
                         # TODO: Check if this keeps the order of the queries
+                        print("🔥🔥🔥 Sending requests to sglang")
                         with concurrent.futures.ThreadPoolExecutor(max_workers=64) as executor:
                             outputs = list(executor.map(send_request, g_queries_list))
                         # outputs = self.llm.generate(
