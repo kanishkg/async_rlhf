@@ -30,6 +30,7 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
         model=model_name_or_path,
         enforce_eager=True,
         tensor_parallel_size=1,
+        use_xpu_communicator=True
         device=vllm_device,
         dtype=vllm_dtype,
         gpu_memory_utilization=vllm_gpu_memory_utilization,
