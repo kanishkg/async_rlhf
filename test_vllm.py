@@ -48,7 +48,8 @@ if accelerator.is_main_process:
     data = {"text": "What is the capital of France?", "sampling_params": sampling_params, "return_logprob": True}
     response = requests.post("http://localhost:30010/generate", json=data)
     print(response.json().keys())
-
+    print(response.json()["text"])
+    print(response.json()["meta_info"])
 
 
     # vllm_single_gpu_patch()
