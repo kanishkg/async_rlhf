@@ -46,4 +46,5 @@ if accelerator.is_main_process:
 else:
     print("Hello from subprocess")
 
+accelerator.wait_for_everyone()
 print("All processes are ready")
