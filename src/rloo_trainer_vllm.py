@@ -304,10 +304,8 @@ class RLOOTrainer(Trainer):
                             "sampling_params": self.sampling_params,
                         }
                         response = requests.post(request_url, json=data)
-                        response = response.json()
-                        logprobs = [mi[0] for mi in response["meta_info"]["output_token_logprobs"]]
-                        token_ids = [mi[1] for mi in response["meta_info"]["output_token_logprobs"]]
-                        return {"logprobs": logprobs, "token_ids": token_ids}
+                        response = response.json()["text"]
+                        return response
 
                     # send request to sglang in parallel
                     # TODO: Check if this keeps the order of the queries
@@ -316,14 +314,15 @@ class RLOOTrainer(Trainer):
                     # outputs = self.llm.generate(
                     #     prompt_token_ids=g_queries_list, sampling_params=self.sampling_params
                     # )
-                    output_token_ids = [output["token_ids"] for output in outputs]
-                    output_logprobs = [output["logprobs"] for output in outputs]
-                    padded_response_token_ids = []
-                    for token_ids in output_token_ids:
-                        DUMMY_PAD_TOKEN = 0  # we can't use tokenizer.pad_token_id because it's outside vocab and `torch.gather(all_logprob, 2, response.unsqueeze(-1))` will error out
-                        padded_token_ids = token_ids + [DUMMY_PAD_TOKEN] * (args.response_length - len(token_ids))
-                        padded_response_token_ids.append(padded_token_ids)
-                    padded_response_token_ids = torch.tensor(padded_response_token_ids, device=device)
+                    padded_response_token_ids = tokenizer(outputs, return_tensors="pt", max_length=args.response_length, padding="max_length", padding_side="right")["input_ids"]
+                    padded_response_token_ids = padded_response_token_ids.to(device)
+
+                    # padded_response_token_ids = []
+                    # for token_ids in output_token_ids:
+                    #     DUMMY_PAD_TOKEN = 0  # we can't use tokenizer.pad_token_id because it's outside vocab and `torch.gather(all_logprob, 2, response.unsqueeze(-1))` will error out
+                    #     padded_token_ids = token_ids + [DUMMY_PAD_TOKEN] * (args.response_length - len(token_ids))
+                    #     padded_response_token_ids.append(padded_token_ids)
+                    # padded_response_token_ids = torch.tensor(padded_response_token_ids, device=device)
                     g_responses[:] = padded_response_token_ids
 
                     broadcast(g_responses, 0)
