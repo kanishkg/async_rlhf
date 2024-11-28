@@ -44,10 +44,10 @@ if accelerator.is_main_process:
     # server_process = execute_shell_command(f"python -m sglang.launch_server --model-path meta-llama/Llama-3.1-8B-Instruct --port=30010 --device=cuda --dtype=bfloat16 --max-total-tokens=2048 --base-gpu-id=3")
     wait_for_server("http://localhost:30010")
     print("Server is ready")
-    sampling_params = {"temperature": 1.0, "top_p": 0.95, "max_new_tokens": 20}
+    sampling_params = {"temperature": 1.0, "top_p": 0.95, "max_new_tokens": 512}
     data = {"text": ["What is the capital of France?"]*16, "sampling_params": sampling_params}
     response = requests.post("http://localhost:30010/generate", json=data)
-    print(response.json().keys())
+    print(response.json())
     print(response.json()["text"])
     print(response.json()["meta_info"])
     # meta_info = response.json()["meta_info"]["output_token_logprobs"]
