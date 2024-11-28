@@ -58,7 +58,7 @@ def main():
     thread = threading.Thread(
                 target=vllm_generate,
                 args=(
-                    "/scr/kanishkg/rloo_temp",
+                    "meta-llama/Llama-3.1-8B-Instruct",
                     "cuda:0",
                     "bfloat16",
                     0.95,
