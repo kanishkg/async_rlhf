@@ -49,7 +49,11 @@ if accelerator.is_main_process:
     response = requests.post("http://localhost:30010/generate", json=data)
     print(response.json().keys())
     print(response.json()["text"])
-    print(response.json()["meta_info"])
+    meta_info = response.json()["meta_info"]["output_token_logprobs"]
+    logprobs = [mi[0] for mi in meta_info]
+    token_ids = [mi[1] for mi in meta_info]
+    print(logprobs)
+    print(token_ids)
 
 
     # vllm_single_gpu_patch()
