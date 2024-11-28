@@ -60,6 +60,7 @@ def main():
                     "cuda:0",
                     "bfloat16",
                     0.95,
+                    param_prompt_Q
                 ),
             )
     thread.start()
