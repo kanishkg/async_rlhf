@@ -45,17 +45,18 @@ if accelerator.is_main_process:
     wait_for_server("http://localhost:30010")
     print("Server is ready")
     sampling_params = {"temperature": 1.0, "top_p": 0.95, "max_new_tokens": 20}
-    data = {"text": "What is the capital of France?", "sampling_params": sampling_params, "return_logprob": True}
+    data = {"text": "What is the capital of France?", "sampling_params": sampling_params}
     response = requests.post("http://localhost:30010/generate", json=data)
     print(response.json().keys())
     print(response.json()["text"])
-    meta_info = response.json()["meta_info"]["output_token_logprobs"]
-    logprobs = [mi[0] for mi in meta_info]
-    token_ids = [mi[1] for mi in meta_info]
-    print(logprobs)
-    print(token_ids)
-    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.1-8B-Instruct")
-    print(tokenizer.decode(token_ids))
+    print(response.json()["meta_info"])
+    # meta_info = response.json()["meta_info"]["output_token_logprobs"]
+    # logprobs = [mi[0] for mi in meta_info]
+    # token_ids = [mi[1] for mi in meta_info]
+    # print(logprobs)
+    # print(token_ids)
+    # tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.1-8B-Instruct")
+    # print(tokenizer.decode(token_ids))
 
 
     # vllm_single_gpu_patch()

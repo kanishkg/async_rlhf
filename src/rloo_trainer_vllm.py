@@ -304,17 +304,21 @@ class RLOOTrainer(Trainer):
                             "sampling_params": self.sampling_params,
                         }
                         response = requests.post(request_url, json=data)
-                        return response.json()
+                        response = response.json()
+                        logprobs = [mi[0] for mi in response["meta_info"]["output_token_logprobs"]]
+                        token_ids = [mi[1] for mi in response["meta_info"]["output_token_logprobs"]]
+                        return {"logprobs": logprobs, "token_ids": token_ids}
 
                     # send request to sglang in parallel
+                    # TODO: Check if this keeps the order of the queries
                     with concurrent.futures.ThreadPoolExecutor(max_workers=64) as executor:
                         outputs = list(executor.map(send_request, g_queries_list))
                     # outputs = self.llm.generate(
                     #     prompt_token_ids=g_queries_list, sampling_params=self.sampling_params
                     # )
+                    output_token_ids = [output["token_ids"] for output in outputs]
+                    output_logprobs = [output["logprobs"] for output in outputs]
                     padded_response_token_ids = []
-                    output_text = [o["text"] for o in outputs]
-                    output_token_ids = tokenizer(output_text, return_tensors="pt").input_ids
                     for token_ids in output_token_ids:
                         DUMMY_PAD_TOKEN = 0  # we can't use tokenizer.pad_token_id because it's outside vocab and `torch.gather(all_logprob, 2, response.unsqueeze(-1))` will error out
                         padded_token_ids = token_ids + [DUMMY_PAD_TOKEN] * (args.response_length - len(token_ids))
@@ -331,59 +335,60 @@ class RLOOTrainer(Trainer):
                     # if args.remove_duplicate_response_pad_tokens: # NOTE: micro optimization: remove the pad to longest
                     #     local_responses = local_responses[:, :(local_responses != tokenizer.pad_token_id).sum(1).max()]
                     queries_responses = torch.cat((queries, local_responses), 1)
-                    for i in range(0, queries.shape[0], args.local_rollout_forward_batch_size):
-                        query = queries[i : i + args.local_rollout_forward_batch_size]
-                        query_response = queries_responses[i : i + args.local_rollout_forward_batch_size]
-                        response = query_response[:, context_length:]
+                    with unwrap_model_for_generation(model, self.accelerator) as unwrapped_model:
+                        for i in range(0, queries.shape[0], args.local_rollout_forward_batch_size):
+                            query = queries[i : i + args.local_rollout_forward_batch_size]
+                            query_response = queries_responses[i : i + args.local_rollout_forward_batch_size]
+                            response = query_response[:, context_length:]
 
-                        output = forward(unwrapped_model, query_response, tokenizer.pad_token_id)
-                        logits = output.logits[:, context_length - 1 : -1]
-                        logits /= args.temperature + 1e-7
-                        all_logprob = F.log_softmax(logits, dim=-1)
-                        logprob = torch.gather(all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
-                        del output, logits, all_logprob
-                        torch.cuda.empty_cache()
+                            output = forward(unwrapped_model, query_response, tokenizer.pad_token_id)
+                            logits = output.logits[:, context_length - 1 : -1]
+                            logits /= args.temperature + 1e-7
+                            all_logprob = F.log_softmax(logits, dim=-1)
+                            logprob = torch.gather(all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
+                            del output, logits, all_logprob
+                            torch.cuda.empty_cache()
 
-                        ref_output = forward(ref_policy, query_response, tokenizer.pad_token_id)
-                        ref_logits = ref_output.logits[:, context_length - 1 : -1]
-                        ref_logits /= args.temperature + 1e-7
-                        ref_all_logprob = F.log_softmax(ref_logits, dim=-1)
-                        ref_logprob = torch.gather(ref_all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
-                        del ref_output, ref_logits, ref_all_logprob
-                        torch.cuda.empty_cache()
+                            ref_output = forward(ref_policy, query_response, tokenizer.pad_token_id)
+                            ref_logits = ref_output.logits[:, context_length - 1 : -1]
+                            ref_logits /= args.temperature + 1e-7
+                            ref_all_logprob = F.log_softmax(ref_logits, dim=-1)
+                            ref_logprob = torch.gather(ref_all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
+                            del ref_output, ref_logits, ref_all_logprob
+                            torch.cuda.empty_cache()
 
-                        # Response Processing 1. truncate response after the first occurrence of `truncate_token_id`
-                        postprocessed_response = response
-                        if args.stop_token_id is not None:  # handle the edge case when stop_token_id exists but is 0
-                            postprocessed_response = truncate_response(
-                                args.stop_token_id, tokenizer.pad_token_id, response
-                            )
+                            # Response Processing 1. truncate response after the first occurrence of `truncate_token_id`
+                            postprocessed_response = response
+                            if args.stop_token_id is not None:  # handle the edge case when stop_token_id exists but is 0
+                                postprocessed_response = truncate_response(
+                                    args.stop_token_id, tokenizer.pad_token_id, response
+                                )
 
-                        # Response Processing 2. run reward model on the truncated responses
-                        postprocessed_query_response = torch.cat((query, postprocessed_response), 1)
-                        sequence_length = first_true_indices(postprocessed_response == tokenizer.pad_token_id) - 1
-                        if reward_model is not None:
-                            _, score, _ = get_reward(
-                                reward_model, postprocessed_query_response, tokenizer.pad_token_id, context_length
-                            )
-                        else:
-                            # use reward function
-                            # decode the responses and queries
-                            response_text = tokenizer.batch_decode(postprocessed_response, skip_special_tokens=True)
-                            query_text = tokenizer.batch_decode(query, skip_special_tokens=True)
-                            score = []
-                            for q, r in zip(query_text, response_text):
-                                s = self.reward_fn(q, r)
-                                score.append(s)
-                            
+                            # Response Processing 2. run reward model on the truncated responses
+                            postprocessed_query_response = torch.cat((query, postprocessed_response), 1)
+                            sequence_length = first_true_indices(postprocessed_response == tokenizer.pad_token_id) - 1
+                            if reward_model is not None:
+                                _, score, _ = get_reward(
+                                    reward_model, postprocessed_query_response, tokenizer.pad_token_id, context_length
+                                )
+                            else:
+                                # use reward function
+                                # decode the responses and queries
+                                response_text = tokenizer.batch_decode(postprocessed_response, skip_special_tokens=True)
+                                query_text = tokenizer.batch_decode(query, skip_special_tokens=True)
+                                score = []
+                                for q, r in zip(query_text, response_text):
+                                    s = self.reward_fn(q, r)
+                                    score.append(s)
+                                
 
-                        query_responses.append(query_response)
-                        responses.append(response)
-                        postprocessed_responses.append(postprocessed_response)
-                        logprobs.append(logprob)
-                        ref_logprobs.append(ref_logprob)
-                        sequence_lengths.append(sequence_length)
-                        scores.append(torch.tensor(score))
+                            query_responses.append(query_response)
+                            responses.append(response)
+                            postprocessed_responses.append(postprocessed_response)
+                            logprobs.append(logprob)
+                            ref_logprobs.append(ref_logprob)
+                            sequence_lengths.append(sequence_length)
+                            scores.append(torch.tensor(score))
                 query_responses = torch.cat(query_responses, 0)
                 responses = torch.cat(responses, 0)
                 postprocessed_responses = torch.cat(postprocessed_responses, 0)
