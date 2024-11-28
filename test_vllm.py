@@ -41,8 +41,8 @@ if accelerator.is_main_process:
                 args=(
                     "meta-llama/Llama-3.1-8B-Instruct",
                     "cuda:3",
-                    0.95,
                     "bfloat16",
+                    0.95,
                 ),
             )
     thread.start()
