@@ -303,7 +303,6 @@ class RLOOTrainer(Trainer):
                         [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
                         for item in queries_list
                     ]
-                    print(f"Time to gather queries: {time.time() - start_time:.2f} seconds")
                     request_url = self.url + "/generate"
 
                         
@@ -314,8 +313,8 @@ class RLOOTrainer(Trainer):
                             "input_ids": g_queries_list,
                             "sampling_params": self.sampling_params,
                         }
-                    response = requests.post(request_url, json=data)
-                    outputs = response.json()["text"]
+                    responses = requests.post(request_url, json=data)
+                    outputs = [response["text"] for response in responses.json()]
 
 
                     # outputs = self.llm.generate(
