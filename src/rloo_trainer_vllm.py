@@ -277,7 +277,7 @@ class RLOOTrainer(Trainer):
                         # saving temp model
                         print("🔥🔥🔥 Saving model")
                         start_time = time.time()
-                        save_path = "/scr/rloo_tmp/"
+                        save_path = "/scr/kanishkg/rloo_tmp/"
                         unwrapped_model.save_pretrained(save_path, save_function=accelerator.save)
                         print(f"Time to save model: {time.time() - start_time:.2f} seconds")
 
