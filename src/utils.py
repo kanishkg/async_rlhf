@@ -184,5 +184,6 @@ class WandbLogModelConfig(TrainerCallback):
 
     def on_train_begin(self, args, state, control, model=None, **kwargs):
         # TODO this is wrong report_to
-        if args.report_to and state.is_world_process_zero:
-            wandb.config.update(self.model_config.to_dict(), allow_val_change=True)
+        # if args.report_to and state.is_world_process_zero:
+        #     wandb.config.update(self.model_config.to_dict(), allow_val_change=True)
+        pass
