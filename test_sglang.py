@@ -27,20 +27,21 @@ from accelerate import Accelerator
 
 import asyncio
 
-llm = sgl.Engine(model_path="meta-llama/Meta-Llama-3.1-8B-Instruct", device="cuda", dtype="bfloat16", max_total_tokens=2048, base_gpu_id=0)
+if __name__ == "__main__":
+    llm = sgl.Engine(model_path="meta-llama/Meta-Llama-3.1-8B-Instruct", device="cuda", dtype="bfloat16", max_total_tokens=2048, base_gpu_id=0)
 
-prompts = [
-    "Hello, my name is",
-    "The president of the United States is",
-    "The capital of France is",
-    "The future of AI is",
-]
+    prompts = [
+        "Hello, my name is",
+        "The president of the United States is",
+        "The capital of France is",
+        "The future of AI is",
+    ]
 
-sampling_params = {"temperature": 0.8, "top_p": 0.95, "max_new_tokens": 2048}
+    sampling_params = {"temperature": 0.8, "top_p": 0.95, "max_new_tokens": 2048}
 
-outputs = llm.generate(prompts, sampling_params)
-for prompt, output in zip(prompts, outputs):
-    print("===============================")
-    print(f"Prompt: {prompt}\nGenerated text: {output['text']}")
-    print("===============================")
+    outputs = llm.generate(prompts, sampling_params)
+    for prompt, output in zip(prompts, outputs):
+        print("===============================")
+        print(f"Prompt: {prompt}\nGenerated text: {output['text']}")
+        print("===============================")
 
