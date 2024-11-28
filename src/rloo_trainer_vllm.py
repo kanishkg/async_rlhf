@@ -293,12 +293,15 @@ class RLOOTrainer(Trainer):
                         assert response.json().keys() == {"success", "message"}
                         print(f"Time to load weights: {time.time() - start_time:.2f} seconds")
 
+                        print("gathering queries")
+                        start_time = time.time()
                         g_queries_list = gather_object(queries.tolist())
 
                         g_queries_list = [
                             [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
                             for item in g_queries_list
                         ]
+                        print(f"Time to gather queries: {time.time() - start_time:.2f} seconds")
                         request_url = self.url + "/generate"
 
                         def send_request(query):
