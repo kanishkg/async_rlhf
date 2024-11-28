@@ -4,7 +4,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional, Tuple, Union, Callable
 import queue
-import threading
+import concurrent.futures
+import requests
 
 import numpy as np
 import pandas as pd
@@ -38,6 +39,13 @@ from trl.trainer.utils import (
     truncate_response,
 )
 from vllm import SamplingParams, LLM
+from sglang.utils import (
+    execute_shell_command,
+    wait_for_server,
+    terminate_process,
+    print_highlight,
+)
+
 
 from src.utils import prepare_deepspeed
 from src.vllm_utils import vllm_single_gpu_patch
@@ -115,7 +123,15 @@ class RLOOTrainer(Trainer):
         if args.num_sample_generations > 0:
             self.sample_generations_freq = max(1, args.num_updates // args.num_sample_generations)
 
-
+        ### SGlang
+        sampling_params = {"temperature": args.temperature, "top_p": 0.95, "max_new_tokens": 2048, "return_logprob": True}
+        self.url = "http://localhost:30010"
+        if accelerator.is_main_process:
+            wait_for_server(self.url)
+        else:
+            print("Waiting for SGlang server to start")
+        
+        accelerator.wait_for_everyone()
 
         #########
         # setup model, optimizer, and others
@@ -217,30 +233,6 @@ class RLOOTrainer(Trainer):
 
         iter_dataloader = iter(repeat_generator())
 
-        #########
-        ### vllm
-        #########
-        if accelerator.is_main_process:
-            vllm_device = f"cuda:{accelerator.num_processes}"
-            response_ids_Q = queue.Queue(maxsize=1)
-            param_prompt_Q = queue.Queue(maxsize=1)
-            thread = threading.Thread(
-                target=vllm_generate,
-                args=(
-                    args.sft_model_path,
-                    vllm_device,
-                    0.95,
-                    "bfloat16",
-                    response_ids_Q,
-                    param_prompt_Q,
-                    self.state.logging_steps,
-                    args.temperature,
-                    args.response_length,
-                ),
-            )
-            thread.start()
-
-
         accelerator.print("===training policy===")
         global_step = 0
         start_time = time.time()
@@ -267,6 +259,7 @@ class RLOOTrainer(Trainer):
             data = next(iter_dataloader)
             with torch.no_grad():
                 queries = data["input_ids"].to(device)
+                # TODO: (KG) This is slow; we should use parallel sampling from vllm or sglang 
                 queries = queries.repeat(args.rloo_k, 1)
                 context_length = queries.shape[1]
                 query_responses = []
@@ -276,32 +269,58 @@ class RLOOTrainer(Trainer):
                 ref_logprobs = []
                 scores = []
                 sequence_lengths = []
-                with unwrap_model_for_generation(model, self.accelerator) as unwrapped_model:
+                # save model parameters
+                self.accelerator.wait_for_everyone()
+                if self.accelerator.is_main_process:
+                    # saving temp model
+                    print("🔥🔥🔥 Saving model")
+                    start_time = time.time()
+                    save_path = "/scr/rloo_tmp/"
+                    accelerator.save_model(model, save_path)
+                    print(f"Time to save model: {time.time() - start_time:.2f} seconds")
+
+                    # update sglang model
+                    print("🔥🔥🔥 Updating weights")
+                    start_time = time.time()
+                    data = { "model_path": save_path }
+                    response = requests.post(self.url+'/update_weights', json=data)
+                    print_highlight(response.text)
+                    assert response.json()["success"] is True
+                    assert response.json()["message"] == "Succeeded to update model weights."
+                    assert response.json().keys() == {"success", "message"}
+                    print(f"Time to load weights: {time.time() - start_time:.2f} seconds")
+
                     g_queries_list = gather_object(queries.tolist())
 
-                    if accelerator.is_main_process:
-                        print(
-                            "🔥🔥🔥 Loading weights using shared memory;"
-                            "we expect the generations to be completely different"
-                        )
-                        start_time = time.time()
-                        self.llmp.load_weights(unwrapped_model.named_parameters())
-                        print(f"Time to load weights: {time.time() - start_time:.2f} seconds")
-                        g_queries_list = [
-                            [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
-                            for item in g_queries_list
-                        ]
-                        outputs = self.llm.generate(
-                            prompt_token_ids=g_queries_list, sampling_params=self.sampling_params
-                        )
-                        padded_response_token_ids = []
-                        for output in outputs:
-                            token_ids = output.outputs[0].token_ids
-                            DUMMY_PAD_TOKEN = 0  # we can't use tokenizer.pad_token_id because it's outside vocab and `torch.gather(all_logprob, 2, response.unsqueeze(-1))` will error out
-                            padded_token_ids = token_ids + [DUMMY_PAD_TOKEN] * (args.response_length - len(token_ids))
-                            padded_response_token_ids.append(padded_token_ids)
-                        padded_response_token_ids = torch.tensor(padded_response_token_ids, device=device)
-                        g_responses[:] = padded_response_token_ids
+                    g_queries_list = [
+                        [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
+                        for item in g_queries_list
+                    ]
+                    request_url = self.url + "/generate"
+
+                    def send_request(query):
+                        data = {
+                            "input_ids": query,
+                            "sampling_params": self.sampling_params,
+                        }
+                        response = requests.post(request_url, json=data)
+                        return response.json()
+
+                    # send request to sglang in parallel
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=64) as executor:
+                        outputs = list(executor.map(send_request, g_queries_list))
+                    # outputs = self.llm.generate(
+                    #     prompt_token_ids=g_queries_list, sampling_params=self.sampling_params
+                    # )
+                    padded_response_token_ids = []
+                    output_text = [o["text"] for o in outputs]
+                    output_token_ids = tokenizer(output_text, return_tensors="pt").input_ids
+                    for token_ids in output_token_ids:
+                        DUMMY_PAD_TOKEN = 0  # we can't use tokenizer.pad_token_id because it's outside vocab and `torch.gather(all_logprob, 2, response.unsqueeze(-1))` will error out
+                        padded_token_ids = token_ids + [DUMMY_PAD_TOKEN] * (args.response_length - len(token_ids))
+                        padded_response_token_ids.append(padded_token_ids)
+                    padded_response_token_ids = torch.tensor(padded_response_token_ids, device=device)
+                    g_responses[:] = padded_response_token_ids
 
                     broadcast(g_responses, 0)
                     local_responses = g_responses[
