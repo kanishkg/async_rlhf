@@ -38,7 +38,7 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
     print(f"🔥🔥🔥 vllm loaded in {vllm_dtype}")
     llmp = llm.llm_engine.model_executor.driver_worker.model_runner.model
 
-    i = 1
+    i = 0
     while True:
         i += 1
         print(f"🔥🔥🔥 Waiting for weights to be loaded")
@@ -67,6 +67,8 @@ def main():
     thread.start()
 
     print("🔥🔥🔥 Putting weights in memory")
+    param_prompt_Q.put(model.named_parameters)
+    param_prompt_Q.put(model.named_parameters)
     param_prompt_Q.put(model.named_parameters)
     print("🔥🔥🔥 Weights are in memory")
 
