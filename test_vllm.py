@@ -40,8 +40,9 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
 accelerator = Accelerator()
 if accelerator.is_main_process:
     print("Hello from main process")
-    server_process = execute_shell_command(f"python -m sglang.launch_server --model-path meta-llama/Llama-3.1-8B-Instruct --port=30010")
+    server_process = execute_shell_command(f"python -m sglang.launch_server --model-path meta-llama/Llama-3.1-8B-Instruct --port=30010 --device=cuda:3 --dtype=bfloat16 context_length=2048")
     wait_for_server("http://localhost:30010")
+    print("Server is ready")
     # vllm_single_gpu_patch()
     # thread = threading.Thread(
     #             target=vllm_generate,
