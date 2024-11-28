@@ -38,6 +38,7 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
     print(f"🔥🔥🔥 vllm loaded in {vllm_dtype}")
     llmp = llm.llm_engine.model_executor.driver_worker.model_runner.model
 
+    i = 0
     while True:
         i += 1
         model_named_parameters = param_prompt_Q.get()
@@ -52,7 +53,7 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
 
 def main():
     vllm_single_gpu_patch()
-    # model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B-Instruct")
+    model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B-Instruct")
     param_prompt_Q = queue.Queue(maxsize=1)
     thread = threading.Thread(
                 target=vllm_generate,
@@ -66,10 +67,8 @@ def main():
             )
     thread.start()
 
-    # time.sleep(5)
-    # print("saving model")
-    # param_prompt_Q.put(model.named_parameters.items())
-    # print("model saved")
+    time.sleep(5)
+    param_prompt_Q.put(model.named_parameters)
 
 if __name__ == "__main__":
     main()
