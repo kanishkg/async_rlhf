@@ -35,13 +35,13 @@ if __name__ == "__main__":
         "The president of the United States is",
         "The capital of France is",
         "The future of AI is",
-    ]
+    ]*16
 
     sampling_params = {"temperature": 0.8, "top_p": 0.95, "max_new_tokens": 2048}
 
     outputs = llm.generate(prompts, sampling_params)
-    for prompt, output in zip(prompts, outputs):
-        print("===============================")
-        print(f"Prompt: {prompt}\nGenerated text: {output['text']}")
-        print("===============================")
+    # for prompt, output in zip(prompts, outputs):
+    #     print("===============================")
+    #     print(f"Prompt: {prompt}\nGenerated text: {output['text']}")
+    #     print("===============================")
 
