@@ -309,6 +309,7 @@ class RLOOTrainer(Trainer):
                     # send request to sglang in parallel
                     # TODO: Check if this keeps the order of the queries
                     print(f"🔥🔥🔥 Sending requests to sglang {len(g_queries_list)}")
+                    print(f"{len(g_queries_list[0])}")
                     data = {
                             "input_ids": g_queries_list,
                             "sampling_params": self.sampling_params,
