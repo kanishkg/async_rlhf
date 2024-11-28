@@ -45,7 +45,7 @@ if accelerator.is_main_process:
     wait_for_server("http://localhost:30010")
     print("Server is ready")
     sampling_params = {"temperature": 1.0, "top_p": 0.95, "max_new_tokens": 2048}
-    data = {"text": ["What is the capital of France?"]*4, "sampling_params": sampling_params}
+    data = {"text": ["What is the capital of France?"]*256, "sampling_params": sampling_params}
     response = requests.post("http://localhost:30010/generate", json=data)
     print(len(response.json()))
     print(response.json()["text"])
