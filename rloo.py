@@ -83,6 +83,7 @@ if __name__ == "__main__":
         padding_side="left",
         trust_remote_code=True,
     )
+    tokenizer.pad_token_id = tokenizer.eos_token_id
 
     reward_fn = None
     if args.reward_fn is None:

@@ -314,7 +314,7 @@ class RLOOTrainer(Trainer):
                     # outputs = self.llm.generate(
                     #     prompt_token_ids=g_queries_list, sampling_params=self.sampling_params
                     # )
-                    tokenizer.pad_token_id = 0
+                    tokenizer.pad_token_id = tokenizer.eos_token_id
                     padded_response_token_ids = tokenizer(outputs, return_tensors="pt", max_length=args.response_length, padding="max_length", padding_side="right")["input_ids"]
                     padded_response_token_ids = padded_response_token_ids.to(device)
 
