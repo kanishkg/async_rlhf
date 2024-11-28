@@ -67,10 +67,10 @@ def main():
             )
     thread.start()
 
-    time.sleep(5)
-    print("saving model")
-    param_prompt_Q.put(model.named_parameters.items())
-    print("model saved")
+    # time.sleep(5)
+    # print("saving model")
+    # param_prompt_Q.put(model.named_parameters.items())
+    # print("model saved")
 
 if __name__ == "__main__":
     main()
