@@ -47,7 +47,7 @@ if accelerator.is_main_process:
     sampling_params = {"temperature": 1.0, "top_p": 0.95, "max_new_tokens": 512}
     data = {"text": ["What is the capital of France?"]*16, "sampling_params": sampling_params}
     response = requests.post("http://localhost:30010/generate", json=data)
-    print(response.json())
+    print(len(response.json()))
     print(response.json()["text"])
     print(response.json()["meta_info"])
     # meta_info = response.json()["meta_info"]["output_token_logprobs"]
