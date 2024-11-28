@@ -67,9 +67,9 @@ def main():
     thread.start()
 
     print("🔥🔥🔥 Putting weights in memory")
-    param_prompt_Q.put(model.named_parameters)
-    param_prompt_Q.put(model.named_parameters)
-    param_prompt_Q.put(model.named_parameters)
+    param_prompt_Q.put(model.named_parameters())
+    param_prompt_Q.put(model.named_parameters())
+    param_prompt_Q.put(model.named_parameters())
     print("🔥🔥🔥 Weights are in memory")
 
 if __name__ == "__main__":
