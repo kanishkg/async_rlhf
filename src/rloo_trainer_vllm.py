@@ -278,7 +278,7 @@ class RLOOTrainer(Trainer):
                         print("🔥🔥🔥 Saving model")
                         start_time = time.time()
                         save_path = "/scr/kanishkg/rloo_tmp/"
-                        unwrapped_model.save_pretrained(save_path, save_function=accelerator.save)
+                        unwrapped_model.save_pretrained(save_path)
                         print(f"Time to save model: {time.time() - start_time:.2f} seconds")
 
                         # update sglang model
