@@ -287,7 +287,6 @@ class RLOOTrainer(Trainer):
                         start_time = time.time()
                         data = { "model_path": save_path }
                         response = requests.post(self.url+'/update_weights', json=data)
-                        print_highlight(response.text)
                         assert response.json()["success"] is True
                         assert response.json()["message"] == "Succeeded to update model weights."
                         assert response.json().keys() == {"success", "message"}
