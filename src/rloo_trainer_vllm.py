@@ -124,7 +124,7 @@ class RLOOTrainer(Trainer):
             self.sample_generations_freq = max(1, args.num_updates // args.num_sample_generations)
 
         ### SGlang
-        sampling_params = {"temperature": args.temperature, "top_p": 0.95, "max_new_tokens": 2048, "return_logprob": True}
+        self.sampling_params = {"temperature": args.temperature, "top_p": 0.95, "max_new_tokens": 2048, "return_logprob": True}
         self.url = "http://localhost:30010"
         if accelerator.is_main_process:
             wait_for_server(self.url)
