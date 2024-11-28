@@ -306,20 +306,18 @@ class RLOOTrainer(Trainer):
                     print(f"Time to gather queries: {time.time() - start_time:.2f} seconds")
                     request_url = self.url + "/generate"
 
-                    def send_request(query):
-                        data = {
-                            "input_ids": query,
-                            "sampling_params": self.sampling_params,
-                        }
-                        response = requests.post(request_url, json=data)
-                        response = response.json()["text"]
-                        return response
-
+                        
                     # send request to sglang in parallel
                     # TODO: Check if this keeps the order of the queries
                     print("🔥🔥🔥 Sending requests to sglang")
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=64) as executor:
-                        outputs = list(executor.map(send_request, g_queries_list))
+                    data = {
+                            "input_ids": g_queries_list,
+                            "sampling_params": self.sampling_params,
+                        }
+                    response = requests.post(request_url, json=data)
+                    outputs = response.json()["text"]
+
+
                     # outputs = self.llm.generate(
                     #     prompt_token_ids=g_queries_list, sampling_params=self.sampling_params
                     # )
