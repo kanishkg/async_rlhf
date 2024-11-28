@@ -41,15 +41,14 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
     i = 0
     while True:
         i += 1
+        print(f"🔥🔥🔥 Waiting for weights to be loaded")
         model_named_parameters = param_prompt_Q.get()
+        print(f"🔥🔥🔥 Weights are loaded")
         if i > 2:
             vllm_start_time = time.time()
             print("🔥🔥🔥 Loading weights using shared memory;" "we expect the generations to be completely different")
             llmp.load_weights(model_named_parameters)
             print(f"load weights took: {time.time() - vllm_start_time:.2f} seconds")
-        time.sleep(5)  # Check every 10 seconds
-
-
 
 def main():
     vllm_single_gpu_patch()
@@ -67,8 +66,9 @@ def main():
             )
     thread.start()
 
-    time.sleep(5)
+    print("🔥🔥🔥 Putting weights in memory")
     param_prompt_Q.put(model.named_parameters)
+    print("🔥🔥🔥 Weights are in memory")
 
 if __name__ == "__main__":
     main()
