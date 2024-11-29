@@ -2,6 +2,25 @@ import itertools
 import random
 from typing import Dict, List
 
+PROMPT_TEMPLATE = """Instructions: Solve the problem step by step. If you think the answer is incorrect, revise your answer. Backtrack if you made a mistake.
+Reflect and verify your answer. Right your thoughts in <answer> </answer> tags.
+The answer is a series of arithmetic operations (+, -, *, /) that results in the target number.
+
+Write the final answer in <final_answer> </final_answer> tags.
+For the final answer, make sure that each step in the final answer is written as Step X: number1 (+,-,*,/) number2 = result.
+Otherwise, the grader will not be able to parse your answer.
+
+Example:
+<answer>thought process here</answer>
+<final_answer>
+Step 1: 1+2=3
+Step 2: 2*3=6
+Step 3: 6*4=24
+</final_answer>
+
+Question: {q}
+
+<answer>Let's think step by step:\n\n"""
 def combine_nums(a, b):
     # Implicitly makes assumptions about the order of operations and valid operations
     a = int(a)
@@ -45,9 +64,8 @@ class CountDown(object):
         target = random.randint(self.min_target, self.max_target)
         nums, solution = self.generate(target)
         
-        self.current_task = {
-            'query': f"Find a sequence of arithmetic operations (+, -, *, /) that results in {target} using the numbers {', '.join(map(str, nums))}. Use each number exactly once.",
-        }
+        query = f"Find a sequence of arithmetic operations (+, -, *, /) that results in {target} using the numbers {', '.join(map(str, nums))}. Use each number exactly once.",
+        self.current_task = {"query": PROMPT_TEMPLATE.format(q=query)}
         return self.current_task
 
     @staticmethod
@@ -78,14 +96,14 @@ class CountDown(object):
                     rhs_answer = eval(rhs)
                     if lhs_answer != rhs_answer:
                         print(f"Step {s+1} {lhs} != {rhs}")
-                        return False
+                        return 0.0 
                 except Exception as e:
                     print(f"Error in step {s+1}: {e}")
-                    return False
+                    return 0.0
                 if s == len(steps) - 1:
                     if lhs_answer != target:
                         print(f"Last step {lhs_answer} != {target}")
-                        return False
+                        return 0.0
             print(parsed_steps)
             nums_to_use = nums.copy()
             # check if all numbers are used
@@ -99,10 +117,10 @@ class CountDown(object):
                     a1, a2 = float(a1.strip()), float(a2.strip())
                     if a1 not in nums_to_use or a2 not in nums_to_use:
                         print(f"Step {s+1} {lhs} not in nums_to_use")
-                        return False
+                        return 0.0
                     if a1 == a2:
                         if nums_to_use.count(a1) != 2:
-                            return False
+                            return 0.0
                     nums_to_use.remove(a1)
                     nums_to_use.remove(a2)
                 elif '-' in lhs:
@@ -110,10 +128,10 @@ class CountDown(object):
                     a1, a2 = float(a1.strip()), float(a2.strip())
                     if a1 not in nums_to_use or a2 not in nums_to_use:
                         print(f"Step {s+1} {lhs} not in nums_to_use")
-                        return False
+                        return 0.0
                     if a1 == a2:
                         if nums_to_use.count(a1) != 2:
-                            return False
+                            return 0.0
                     nums_to_use.remove(a1)
                     nums_to_use.remove(a2)
                 elif '*' in lhs:
@@ -121,11 +139,11 @@ class CountDown(object):
                     a1, a2 = float(a1.strip()), float(a2.strip())
                     if a1 not in nums_to_use or a2 not in nums_to_use:
                         print(f"Step {s+1} {lhs} not in nums_to_use")
-                        return False
+                        return 0.0
                     if a1 == a2:
                         if nums_to_use.count(a1) != 2:
                             print(f"Step {s+1} {lhs} {a1} not used twice")
-                            return False
+                            return 0.0
                     nums_to_use.remove(a1)
                     nums_to_use.remove(a2)
                 elif '/' in lhs:
@@ -133,7 +151,7 @@ class CountDown(object):
                     a1, a2 = int(a1.strip()), int(a2.strip())
                     if a1 not in nums_to_use or a2 not in nums_to_use:
                         print(f"Step {s+1} {lhs} not in nums_to_use")
-                        return False
+                        return 0.0
                     if a1 == a2:
                         if nums_to_use.count(a1) != 2:
                             return False
@@ -141,17 +159,17 @@ class CountDown(object):
                     nums_to_use.remove(a2)
                 else:
                     print(f"Step {s+1} {lhs} no operation found")
-                    return False
+                    return 0.0
             if len(nums_to_use) != 1:
                 print(f"Not all numbers used: {nums_to_use}")
-                return False
+                return 0.0 
             if nums_to_use[0] != target:
                 print(f"Last number {nums_to_use[0]} != {target}")
-                return False
+                return 0.0
         except Exception as e:
             print(f"Error in verify_answer: {e}")
-            return False
-        return True
+            return 0.0
+        return 1.0
 
     def search(self, target, nums, operations=[]):
         # Navigate the entire solution tree, implemented with DFS
