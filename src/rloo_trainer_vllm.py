@@ -12,6 +12,8 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.multiprocessing import get_context
+
 from accelerate import Accelerator
 from accelerate.state import AcceleratorState
 from accelerate.utils import broadcast, gather_object, broadcast_object_list
@@ -256,9 +258,13 @@ class RLOOTrainer(Trainer):
         if accelerator.is_main_process:
             vllm_device = f"cuda:{accelerator.num_processes}"
             print(f"🔥🔥🔥 vllm device: {vllm_device}")
-            response_ids_Q = Queue(maxsize=1)
-            param_Q = Queue(maxsize=1)
-            prompt_Q = Queue(maxsize=1)
+            ctx = get_context('spawn')
+            response_ids_Q = ctx.Queue(maxsize=1)
+            param_Q = ctx.Queue(maxsize=1)
+            prompt_Q = ctx.Queue(maxsize=1)
+            # response_ids_Q = Queue(maxsize=1)
+            # param_Q = Queue(maxsize=1)
+            # prompt_Q = Queue(maxsize=1)
 
             thread = threading.Thread(
                 target=vllm_generate,
@@ -274,9 +280,7 @@ class RLOOTrainer(Trainer):
                 ),
             )
             thread.start()
-            response_ids_Q, param_Q, prompt_Q = broadcast_object_list(
-                [response_ids_Q, param_Q, prompt_Q]
-            )
+
         accelerator.wait_for_everyone()
 
 
