@@ -73,6 +73,7 @@ class RLOOTrainer(Trainer):
         callbacks: Optional[List[TrainerCallback]] = None,
         reward_fn: Optional[Callable] = None,
     ) -> None:
+        vllm_single_gpu_patch()
         self.args = config
         args = config
         self.tokenizer = tokenizer
