@@ -346,7 +346,7 @@ class RLOOTrainer(Trainer):
                             prompt_Q.put(g_queries_list)
                             responses = response_ids_Q.get()
 
-                    output_token_ids = [[output.token_ids for output in response.outputs] for response in responses]
+                    output_token_ids = [[list(output.token_ids) for output in response.outputs] for response in responses]
                     # flatten the list
                     output_token_ids = [item for sublist in output_token_ids for item in sublist]
                     tokenizer.pad_token_id = tokenizer.eos_token_id
