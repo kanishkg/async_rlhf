@@ -270,14 +270,14 @@ class RLOOTrainer(Trainer):
 
         # Access the shared queues
         response_ids_Q = manager.get_response_ids_Q()
-        param_Q = manager.get_param_Q()
+        prompt_Q = manager.get_prompt_Q()
         if accelerator.is_main_process:
             vllm_device = f"cuda:{accelerator.num_processes}"
             print(f"🔥🔥🔥 vllm device: {vllm_device}")
 
             # response_ids_Q = Queue(maxsize=1)
-            # param_Q = Queue(maxsize=1)
-            prompt_Q = queue.Queue(maxsize=1)
+            param_Q = queue.Queue(maxsize=1)
+            # prompt_Q = queue.Queue(maxsize=1)
 
             thread = threading.Thread(
                 target=vllm_generate,
