@@ -253,26 +253,27 @@ class RLOOTrainer(Trainer):
         model.train()
         self.control = self.callback_handler.on_train_begin(args, self.state, self.control)
 
-        vllm_device = f"cuda:{accelerator.num_processes}"
-        print(f"🔥🔥🔥 vllm device: {vllm_device}")
-        response_ids_Q = queue.Queue(maxsize=1)
-        param_Q = queue.Queue(maxsize=1)
-        prompt_Q = queue.Queue(maxsize=1)
+        if accelerator.is_main_process:
+            vllm_device = f"cuda:{accelerator.num_processes}"
+            print(f"🔥🔥🔥 vllm device: {vllm_device}")
+            response_ids_Q = queue.Queue(maxsize=1)
+            param_Q = queue.Queue(maxsize=1)
+            prompt_Q = queue.Queue(maxsize=1)
 
-        thread = threading.Thread(
-            target=vllm_generate,
-            args=(
-                args.sft_model_path,
-                self.sampling_params,
-                vllm_device,
-                "bfloat16",
-                0.95,
-                param_Q,
-                prompt_Q,
-                response_ids_Q,
-            ),
-        )
-        thread.start()
+            thread = threading.Thread(
+                target=vllm_generate,
+                args=(
+                    args.sft_model_path,
+                    self.sampling_params,
+                    vllm_device,
+                    "bfloat16",
+                    0.95,
+                    param_Q,
+                    prompt_Q,
+                    response_ids_Q,
+                ),
+            )
+            thread.start()
 
 
         for update in range(1, args.num_updates + 1):
