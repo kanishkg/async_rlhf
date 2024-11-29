@@ -60,7 +60,9 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
         if not prompt_Q.empty():
             queries_list = []
             while not param_Q.empty():
+                print(f"🔥🔥🔥 getting prompts")
                 queries_list += prompt_Q.get()
+            print(f"🔥🔥🔥 prompts are loaded")
             outputs = llm.generate(queries_list, sampling_params=sampling_params, 
                                  use_tqdm=True)
             response_ids_Q.put(outputs)
