@@ -276,6 +276,11 @@ class RLOOTrainer(Trainer):
             thread.start()
 
         accelerator.wait_for_everyone()
+        # send queue object to all accelerator ranks
+        response_ids_Q = accelerator.broadcast(response_ids_Q)
+        param_Q = accelerator.broadcast(param_Q)
+        prompt_Q = accelerator.broadcast(prompt_Q)
+
 
         for update in range(1, args.num_updates + 1):
             global_step += 1 * args.batch_size
