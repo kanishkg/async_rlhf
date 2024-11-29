@@ -17,6 +17,7 @@ def vllm_generate(
         response_ids_Q: queue.Queue
     ):
 
+    print("+++ patching vllm")
     vllm_single_gpu_patch()
     llm = LLM(
         model=model_name_or_path,
