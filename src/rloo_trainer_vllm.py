@@ -275,6 +275,7 @@ class RLOOTrainer(Trainer):
             )
             thread.start()
 
+        accelerator.wait_for_everyone()
 
         for update in range(1, args.num_updates + 1):
             global_step += 1 * args.batch_size
