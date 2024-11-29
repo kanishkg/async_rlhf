@@ -260,6 +260,7 @@ class RLOOTrainer(Trainer):
         self.control = self.callback_handler.on_train_begin(args, self.state, self.control)
 
         vllm_device = f"cuda:{accelerator.num_processes}"
+        print(f"🔥🔥🔥 vllm device: {vllm_device}")
         response_ids_Q = queue.Queue(maxsize=1)
         param_Q = queue.Queue(maxsize=1)
         prompt_Q = queue.Queue(maxsize=1)
