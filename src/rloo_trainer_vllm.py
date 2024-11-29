@@ -3,7 +3,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional, Tuple, Union, Callable
-from multiprocessing import Queue
+from multiprocessing import Manager
 import threading
 import requests
 
@@ -56,6 +56,15 @@ from src.vllm_episode_maker import vllm_generate
 
 INVALID_LOGPROB = 1.0
 
+from multiprocessing.managers import BaseManager
+
+# Define the same Manager class
+class QueueManager(BaseManager):
+    pass
+
+QueueManager.register('get_response_ids_Q')
+QueueManager.register('get_param_Q')
+QueueManager.register('get_prompt_Q')
 
 class RLOOTrainer(Trainer):
     def __init__(
@@ -255,10 +264,15 @@ class RLOOTrainer(Trainer):
         model.train()
         self.control = self.callback_handler.on_train_begin(args, self.state, self.control)
 
-        ctx = get_context('spawn')
-        response_ids_Q = ctx.Queue(maxsize=1)
-        param_Q = ctx.Queue(maxsize=1)
-        prompt_Q = ctx.Queue(maxsize=1)
+
+        # Connect to the manager
+        manager = QueueManager(address=('localhost', 50000), authkey=b'secret')
+        manager.connect()
+
+        # Access the shared queues
+        response_ids_Q = manager.get_response_ids_Q()
+        param_Q = manager.get_param_Q()
+        prompt_Q = manager.get_prompt_Q()
         if accelerator.is_main_process:
             vllm_device = f"cuda:{accelerator.num_processes}"
             print(f"🔥🔥🔥 vllm device: {vllm_device}")
