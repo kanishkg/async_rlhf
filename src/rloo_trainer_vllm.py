@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional, Tuple, Union, Callable
 import queue
-import concurrent.futures
+import threading
 import requests
 
 import numpy as np
@@ -49,6 +49,7 @@ from sglang.utils import (
 
 from src.utils import prepare_deepspeed
 from src.vllm_utils import vllm_single_gpu_patch
+from src.vllm_episode_maker import vllm_generate
 
 
 INVALID_LOGPROB = 1.0
@@ -123,9 +124,13 @@ class RLOOTrainer(Trainer):
         if args.num_sample_generations > 0:
             self.sample_generations_freq = max(1, args.num_updates // args.num_sample_generations)
 
-        ### SGlang
-        self.sampling_params = {"temperature": args.temperature, "top_p": 0.95, "max_new_tokens": 2048}
-        self.url = "http://localhost:30010"
+        self.sampling_params = SamplingParams(
+            temperature=args.temperature,
+            top_p=args.top_p,
+            max_tokens=args.response_length,
+            n=1, #TODO: (KG) change this to args.rloo_k
+        )        
+
         if accelerator.is_main_process:
             wait_for_server(self.url)
         else:
@@ -253,6 +258,28 @@ class RLOOTrainer(Trainer):
         self.state.is_world_process_zero = self.is_world_process_zero()
         model.train()
         self.control = self.callback_handler.on_train_begin(args, self.state, self.control)
+
+        vllm_device = f"cuda:{accelerator.num_processes}"
+        response_ids_Q = queue.Queue(maxsize=1)
+        param_Q = queue.Queue(maxsize=1)
+        prompt_Q = queue.Queue(maxsize=accelerator.num_processes)
+
+        thread = threading.Thread(
+            target=vllm_generate,
+            args=(
+                args.sft_model_path,
+                self.sampling_params,
+                vllm_device,
+                0.95,
+                "bfloat16",
+                response_ids_Q,
+                param_Q,
+                prompt_Q,
+            ),
+        )
+        thread.start()
+
+
         for update in range(1, args.num_updates + 1):
             global_step += 1 * args.batch_size
             self.lr_scheduler.step()
@@ -277,37 +304,27 @@ class RLOOTrainer(Trainer):
                         # update sglang model
                         print("🔥🔥🔥 Updating weights")
                         start_time = time.time()
+                        param_Q.put(unwrapped_model.named_parameters())
                         
-
+                    accelerator.wait_for_everyone()
                     # KG: Changed this so that it is distributed and not just on main process
                     # print("gathering queries")
                     # start_time = time.time()
                     # g_queries_list = gather_object(queries.tolist())
 
-                    accelerator.wait_for_everyone()
+
+                    print(f"🔥🔥🔥 Sending requests to vllm {len(g_queries_list)}")
                     queries_list = queries.tolist()
                     g_queries_list = [
                         [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
                         for item in queries_list
                     ]
-                    request_url = self.url + "/generate"
+                    prompt_Q.put(g_queries_list)
+                    response_ids = response_ids_Q.get()
 
-                        
-                    # send request to sglang in parallel
-                    # TODO: Check if this keeps the order of the queries
-                    print(f"🔥🔥🔥 Sending requests to sglang {len(g_queries_list)}")
-                    print(f"{len(g_queries_list[0])}")
-                    data = {
-                            "input_ids": g_queries_list,
-                            "sampling_params": self.sampling_params,
-                        }
-                    responses = requests.post(request_url, json=data)
                     outputs = [response["text"] for response in responses.json()]
 
 
-                    # outputs = self.llm.generate(
-                    #     prompt_token_ids=g_queries_list, sampling_params=self.sampling_params
-                    # )
                     tokenizer.pad_token_id = tokenizer.eos_token_id
                     padded_response_token_ids = tokenizer(outputs, return_tensors="pt", max_length=args.response_length, padding="max_length", padding_side="right")["input_ids"]
                     padded_response_token_ids = padded_response_token_ids.to(device)
@@ -318,9 +335,9 @@ class RLOOTrainer(Trainer):
                     #     padded_token_ids = token_ids + [DUMMY_PAD_TOKEN] * (args.response_length - len(token_ids))
                     #     padded_response_token_ids.append(padded_token_ids)
                     # padded_response_token_ids = torch.tensor(padded_response_token_ids, device=device)
-                    g_responses[:] = padded_response_token_ids
+                    # g_responses[:] = padded_response_token_ids
 
-                    local_responses = g_responses
+                    local_responses = padded_response_token_ids
                     # broadcast(g_responses, 0)
                     # local_responses = g_responses[
                     #     accelerator.local_process_index

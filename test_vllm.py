@@ -88,13 +88,14 @@ def main():
     thread.start()
     prompts = [
         "Hello, my name is",
-    ]*16
+    ]
     
     print("🔥🔥🔥 Putting weights in memory")
     param_Q.put(model.named_parameters())
     print("🔥🔥🔥 Weights are in memory")
     prompt_Q.put(prompts)
     respones = response_ids_Q.get()
+    print(respones)
     # print(respones)
 
 if __name__ == "__main__":

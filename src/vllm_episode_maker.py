@@ -6,7 +6,16 @@ from vllm import LLM, SamplingParams
 
 from src.vllm_utils import vllm_single_gpu_patch
 
-def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vllm_gpu_memory_utilization: float, param_prompt_Q: queue.Queue, response_ids_Q: queue.Queue):
+def vllm_generate(
+        model_name_or_path: str,
+        sampling_params: SamplingParams,
+        vllm_device: str,
+        vllm_dtype: str,
+        vllm_gpu_memory_utilization: float,
+        param_Q: queue.Queue,
+        prompt_Q: queue.Queue,
+        response_ids_Q: queue.Queue):
+
     vllm_single_gpu_patch()
     llm = LLM(
         model=model_name_or_path,
@@ -17,25 +26,32 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
         gpu_memory_utilization=vllm_gpu_memory_utilization,
     )
     print(f"🔥🔥🔥 vllm loaded")
-    print(f"🔥🔥🔥 vllm loaded in {vllm_dtype}")
+
     llmp = llm.llm_engine.model_executor.driver_worker.model_runner.model
-    sampling_params = SamplingParams(
-        n=1,
-        temperature=1,
-        max_tokens=2048
-    )
 
     i = 0
     while True:
-        i += 1
-        print(f"🔥🔥🔥 Waiting for weights to be loaded")
-        model_named_parameters, queries_list = param_prompt_Q.get()
-        print(f"🔥🔥🔥 Weights are loaded")
-        if i > 0:
-            vllm_start_time = time.time()
-            print("🔥🔥🔥 Loading weights using shared memory;" "we expect the generations to be completely different")
+        if not param_Q.empty():
+            print(f"🔥🔥🔥 Waiting for weights to be loaded")
+            model_named_parameters = param_Q.get()
+            print(f"🔥🔥🔥 Weights are loaded")
+            if i > 0:
+                vllm_start_time = time.time()
+                print("🔥🔥🔥 Loading weights using shared memory;" "we expect the generations to be completely different")
 
-            llmp.load_weights(model_named_parameters)
-            print(f"load weights took: {time.time() - vllm_start_time:.2f} seconds")
-        outputs = llm.generate(queries_list, sampling_params=sampling_params, use_tqdm=True)
-        response_ids_Q.put(outputs)
+                llmp.load_weights(model_named_parameters)
+                print(f"🔥🔥🔥 load weights took: {time.time() - vllm_start_time:.2f} seconds")
+
+        # before populating the queue, make sure to sync processes so that the weights are loaded
+        if not prompt_Q.empty():
+            queries_list = []
+            while not prompt_Q.empty():
+                print(f"🔥🔥🔥 getting prompts")
+                queries_list += prompt_Q.get()
+            print(f"🔥🔥🔥 prompts are loaded {len(queries_list)}")
+            print(f"🔥🔥🔥 generating responses")
+            start = time.time()
+            outputs = llm.generate(prompt_token_ids=queries_list, sampling_params=sampling_params, 
+                                 use_tqdm=True)
+            print(f"🔥🔥🔥 generation took {time.time() - start:.2f} seconds")
+            response_ids_Q.put(outputs)
