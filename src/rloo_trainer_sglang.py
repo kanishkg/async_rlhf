@@ -274,10 +274,23 @@ class RLOOTrainer(Trainer):
 
                 with unwrap_model_for_generation(model, self.accelerator) as unwrapped_model:
                     if self.accelerator.is_main_process:
+                        # saving temp model
+                        print("🔥🔥🔥 Saving model")
+                        start_time = time.time()
+                        save_path = "/scr/kanishkg/rloo_temp/"
+                        unwrapped_model.save_pretrained(save_path, save_save_function=accelerator.save)
+                        # tokenizer.save_pretrained(save_path)
+                        print(f"Time to save model: {time.time() - start_time:.2f} seconds")
+
                         # update sglang model
                         print("🔥🔥🔥 Updating weights")
                         start_time = time.time()
-                        
+                        data = { "model_path": save_path }
+                        response = requests.post(self.url+'/update_weights', json=data)
+                        assert response.json()["success"] is True
+                        assert response.json()["message"] == "Succeeded to update model weights."
+                        assert response.json().keys() == {"success", "message"}
+                        print(f"Time to load weights: {time.time() - start_time:.2f} seconds")
 
                     # KG: Changed this so that it is distributed and not just on main process
                     # print("gathering queries")
