@@ -95,7 +95,7 @@ def main():
     print("🔥🔥🔥 Weights are in memory")
     prompt_Q.put(prompts)
     responses = response_ids_Q.get()
-    print(responses[0].outputs[0].token_ids)
+    # print(responses[0].outputs[0].token_ids)
 
 if __name__ == "__main__":
     main()
