@@ -95,7 +95,7 @@ def main():
     print("🔥🔥🔥 Weights are in memory")
     prompt_Q.put(prompts)
     respones = response_ids_Q.get()
-    print(respones[0].outputs[0]["token_ids"])
+    import pdb; pdb.set_trace()
     # print(respones)
 
 if __name__ == "__main__":
