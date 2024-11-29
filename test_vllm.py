@@ -59,7 +59,7 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
         # before populating the queue, make sure to sync processes so that the weights are loaded
         if not prompt_Q.empty():
             queries_list = []
-            while not param_Q.empty():
+            while not prompt_Q.empty():
                 print(f"🔥🔥🔥 getting prompts")
                 queries_list += prompt_Q.get()
             print(f"🔥🔥🔥 prompts are loaded {len(queries_list)}")
