@@ -6,13 +6,13 @@ from typing import Dict, List, Literal, Optional, Tuple, Union, Callable
 from multiprocessing import Manager
 import threading
 import requests
+import queue
 
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.multiprocessing import get_context
 
 from accelerate import Accelerator
 from accelerate.state import AcceleratorState
@@ -63,7 +63,6 @@ class QueueManager(BaseManager):
     pass
 
 QueueManager.register('get_response_ids_Q')
-QueueManager.register('get_param_Q')
 QueueManager.register('get_prompt_Q')
 
 class RLOOTrainer(Trainer):
@@ -272,14 +271,13 @@ class RLOOTrainer(Trainer):
         # Access the shared queues
         response_ids_Q = manager.get_response_ids_Q()
         param_Q = manager.get_param_Q()
-        prompt_Q = manager.get_prompt_Q()
         if accelerator.is_main_process:
             vllm_device = f"cuda:{accelerator.num_processes}"
             print(f"🔥🔥🔥 vllm device: {vllm_device}")
 
             # response_ids_Q = Queue(maxsize=1)
             # param_Q = Queue(maxsize=1)
-            # prompt_Q = Queue(maxsize=1)
+            prompt_Q = queue.Queue(maxsize=1)
 
             thread = threading.Thread(
                 target=vllm_generate,

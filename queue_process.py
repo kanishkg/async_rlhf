@@ -7,12 +7,10 @@ class QueueManager(BaseManager):
 
 # Create the queues
 response_ids_Q = Queue(maxsize=1)
-param_Q = Queue(maxsize=1)
 prompt_Q = Queue(maxsize=1)
 
 # Register the queues with the manager
 QueueManager.register('get_response_ids_Q', callable=lambda: response_ids_Q)
-QueueManager.register('get_param_Q', callable=lambda: param_Q)
 QueueManager.register('get_prompt_Q', callable=lambda: prompt_Q)
 
 def start_manager():

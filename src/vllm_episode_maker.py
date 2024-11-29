@@ -12,9 +12,9 @@ def vllm_generate(
         vllm_device: str,
         vllm_dtype: str,
         vllm_gpu_memory_utilization: float,
-        param_Q: queue.Queue,
-        prompt_Q: queue.Queue,
-        response_ids_Q: queue.Queue
+        param_Q: object,
+        prompt_Q: object,
+        response_ids_Q: object,
     ):
 
     print("+++ patching vllm")
