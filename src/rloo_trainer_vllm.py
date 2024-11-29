@@ -131,13 +131,6 @@ class RLOOTrainer(Trainer):
             n=args.rloo_k,
         )        
 
-        if accelerator.is_main_process:
-            wait_for_server(self.url)
-        else:
-            print("Waiting for SGlang server to start")
-        
-        accelerator.wait_for_everyone()
-
         #########
         # setup model, optimizer, and others
         #########
