@@ -3,7 +3,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional, Tuple, Union, Callable
-import queue
+from multiprocessing import Queue
 import threading
 import requests
 
@@ -256,9 +256,9 @@ class RLOOTrainer(Trainer):
         if accelerator.is_main_process:
             vllm_device = f"cuda:{accelerator.num_processes}"
             print(f"🔥🔥🔥 vllm device: {vllm_device}")
-            response_ids_Q = queue.Queue(maxsize=1)
-            param_Q = queue.Queue(maxsize=1)
-            prompt_Q = queue.Queue(maxsize=1)
+            response_ids_Q = Queue(maxsize=1)
+            param_Q = Queue(maxsize=1)
+            prompt_Q = Queue(maxsize=1)
 
             thread = threading.Thread(
                 target=vllm_generate,
