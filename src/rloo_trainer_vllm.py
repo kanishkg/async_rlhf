@@ -264,11 +264,11 @@ class RLOOTrainer(Trainer):
                 args.sft_model_path,
                 self.sampling_params,
                 vllm_device,
-                0.95,
                 "bfloat16",
-                response_ids_Q,
+                0.95,
                 param_Q,
                 prompt_Q,
+                response_ids_Q,
             ),
         )
         thread.start()
