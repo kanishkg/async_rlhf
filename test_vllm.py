@@ -47,7 +47,7 @@ def vllm_generate(model_name_or_path: str, vllm_device: str, vllm_dtype: str, vl
     while True:
         if not param_Q.empty():
             print(f"🔥🔥🔥 Waiting for weights to be loaded")
-            model_named_parameters, queries_list = param_Q.get()
+            model_named_parameters = param_Q.get()
             print(f"🔥🔥🔥 Weights are loaded")
             if i > 0:
                 vllm_start_time = time.time()
