@@ -186,13 +186,13 @@ def create_countdown_datasets(
 
     for _ in range(num_samples):
         task = countdown.get_task()
-        train_data.append((task['query']))
+        train_data.append(task)
 
     for _ in range(eval_size):
         task = countdown.get_task()
-        val_data.append((task['query']))
+        val_data.append(task)
         task = countdown.get_task()    
-        test_data.append((task['query']))
+        test_data.append(task)
 
     return train_data, val_data, test_data
 
