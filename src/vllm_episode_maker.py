@@ -14,7 +14,8 @@ def vllm_generate(
         vllm_gpu_memory_utilization: float,
         param_Q: queue.Queue,
         prompt_Q: queue.Queue,
-        response_ids_Q: queue.Queue):
+        response_ids_Q: queue.Queue
+    ):
 
     vllm_single_gpu_patch()
     llm = LLM(
@@ -44,10 +45,8 @@ def vllm_generate(
 
         # before populating the queue, make sure to sync processes so that the weights are loaded
         if not prompt_Q.empty():
-            queries_list = []
-            while not prompt_Q.empty():
-                print(f"🔥🔥🔥 getting prompts")
-                queries_list += prompt_Q.get()
+            print(f"🔥🔥🔥 getting prompts")
+            queries_list = prompt_Q.get()
             print(f"🔥🔥🔥 prompts are loaded {len(queries_list)}")
             print(f"🔥🔥🔥 generating responses")
             start = time.time()

@@ -94,9 +94,8 @@ def main():
     param_Q.put(model.named_parameters())
     print("🔥🔥🔥 Weights are in memory")
     prompt_Q.put(prompts)
-    respones = response_ids_Q.get()
-    import pdb; pdb.set_trace()
-    # print(respones)
+    responses = response_ids_Q.get()
+    print(responses[0].outputs[0].token_ids)
 
 if __name__ == "__main__":
     main()

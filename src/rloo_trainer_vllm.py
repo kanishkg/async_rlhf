@@ -262,7 +262,7 @@ class RLOOTrainer(Trainer):
         vllm_device = f"cuda:{accelerator.num_processes}"
         response_ids_Q = queue.Queue(maxsize=1)
         param_Q = queue.Queue(maxsize=1)
-        prompt_Q = queue.Queue(maxsize=accelerator.num_processes)
+        prompt_Q = queue.Queue(maxsize=1)
 
         thread = threading.Thread(
             target=vllm_generate,
@@ -319,10 +319,15 @@ class RLOOTrainer(Trainer):
                         [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
                         for item in queries_list
                     ]
-                    prompt_Q.put(g_queries_list)
-                    responses = response_ids_Q.get()
+                    
+                    # run this sequentially on processes one by one
+                    for i in range(accelerator.num_processes):
+                        if i == accelerator.local_process_index:
+                            print("processing queries for process", i)
+                            prompt_Q.put(g_queries_list)
+                            responses = response_ids_Q.get()
 
-                    output_token_ids = [response.outputs[0]['token_ids'] for response in responses]
+                    output_token_ids = [response.outputs[0].token_ids for response in responses]
                     tokenizer.pad_token_id = tokenizer.eos_token_id
 
                     padded_response_token_ids = []
@@ -651,63 +656,6 @@ class RLOOTrainer(Trainer):
 
             if wandb.run is not None:
                 wandb.log({"completions": wandb.Table(dataframe=df)})
-
-def vllm_generate(
-    model_name_or_path: str,
-    vllm_device: str,
-    vllm_gpu_memory_utilization: float,
-    vllm_dtype: str,
-    response_ids_Q: queue.Queue,
-    param_prompt_Q: queue.Queue,
-    logging_steps: int,
-    temperature: float,
-    response_length: int,
-):
-    vllm_single_gpu_patch()
-    generation_config = SamplingParams(
-        temperature=(temperature + 1e-7),
-        top_p=1.0,
-        max_tokens=response_length,
-        include_stop_str_in_output=True,
-    )
-
-    llm = LLM(
-        model=model_name_or_path,
-        revision="main",
-        tokenizer_revision="main",
-        tensor_parallel_size=1,
-        device=vllm_device,
-        dtype=vllm_dtype,
-        gpu_memory_utilization=vllm_gpu_memory_utilization,
-    )
-    print(f"🔥🔥🔥 vllm loaded in {vllm_dtype}")
-    llmp = llm.llm_engine.model_executor.driver_worker.model_runner.model
-    i = 0
-    while True:
-        i += 1
-        model_named_parameters, g_queries_list = param_prompt_Q.get()
-        # print("got queries==================")
-        if model_named_parameters is None and g_queries_list is None:
-            print("model params and queries are None, exiting")
-            break
-
-        vllm_start_time = time.time()
-        if i > 2:
-            # print("🔥🔥🔥 Loading weights using shared memory;" "we expect the generations to be completely different")
-            llmp.load_weights(model_named_parameters)
-            print(f"load weights took: {time.time() - vllm_start_time:.2f} seconds")
-
-        outputs = llm.generate(prompt_token_ids=g_queries_list, sampling_params=generation_config, use_tqdm=False)
-        if i % logging_steps == 0:
-            print(
-                f"🏃🏃🏃 load and gen of {len(g_queries_list)} prompts took: {time.time() - vllm_start_time:.2f} seconds"
-            )
-        response_token_ids = []
-        for output in outputs:
-            response_token_ids.append(output.outputs[0].token_ids)
-
-        response_ids_Q.put(response_token_ids)
-
 
 if __name__ == "__main__":
 
