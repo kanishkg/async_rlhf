@@ -126,7 +126,7 @@ class RLOOTrainer(Trainer):
 
         self.sampling_params = SamplingParams(
             temperature=args.temperature,
-            top_p=args.top_p,
+            top_p=1.0,
             max_tokens=args.response_length,
             n=args.rloo_k,
         )        
