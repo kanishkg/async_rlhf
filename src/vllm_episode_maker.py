@@ -30,7 +30,6 @@ def vllm_generate(
         swap_space=64,
         dtype=vllm_dtype,
         max_model_len=2048,
-        device=vllm_device
     )
     print(f"🔥🔥🔥 vllm loaded")
 
