@@ -85,6 +85,7 @@ def custom_initialize_model_parallel(
     """
     # Get world size and rank. Ensure some consistencies.
     assert torch.distributed.is_initialized()
+    print("🔥🔥🔥 SingleGPULLM logic: only use a single GPU")
     world_size: int = torch.distributed.get_world_size()
     world_size: int = 1  # SingleGPULLM logic: only use a single GPU
     backend = backend or torch.distributed.get_backend(get_world_group().device_group)
@@ -125,6 +126,7 @@ def custom_initialize_model_parallel(
 
 
 def init_world_group(ranks: List[int], local_rank: int, backend: str) -> GroupCoordinator:
+    print("🔥🔥🔥 SingleGPULLM logic: only use a single GPU")
     return GroupCoordinator(
         group_ranks=[[0]],  # SingleGPULLM logic: only use a single GPU
         local_rank=local_rank,
@@ -141,6 +143,7 @@ def _init_executor(self) -> None:
     """Initialize the worker and load the model."""
     assert self.parallel_config.world_size == 1, "GPUExecutor only supports single GPU."
 
+    print("🔥🔥🔥 GPUExecutor only supports single GPU.")
     self.driver_worker = self._create_worker(local_rank=self.device_config.device.index)
     self.driver_worker.init_device()
     self.driver_worker.load_model()
