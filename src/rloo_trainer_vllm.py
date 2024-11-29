@@ -128,7 +128,7 @@ class RLOOTrainer(Trainer):
             temperature=args.temperature,
             top_p=args.top_p,
             max_tokens=args.response_length,
-            n=1, #TODO: (KG) change this to args.rloo_k
+            n=args.rloo_k,
         )        
 
         if accelerator.is_main_process:
@@ -287,7 +287,7 @@ class RLOOTrainer(Trainer):
             with torch.no_grad():
                 queries = data["input_ids"].to(device)
                 # TODO: (KG) This is slow; we should use parallel sampling from vllm or sglang 
-                queries = queries.repeat(args.rloo_k, 1)
+                repeated_queries = queries.repeat(args.rloo_k, 1)
                 context_length = queries.shape[1]
                 query_responses = []
                 responses = []
@@ -321,13 +321,16 @@ class RLOOTrainer(Trainer):
                     ]
                     
                     # run this sequentially on processes one by one
+                    # TODO (KG): This can be parallelized; pass process id in the prompt_Q, and return it with the response_ids_Q
                     for i in range(accelerator.num_processes):
                         if i == accelerator.local_process_index:
                             print("processing queries for process", i)
                             prompt_Q.put(g_queries_list)
                             responses = response_ids_Q.get()
 
-                    output_token_ids = [response.outputs[0].token_ids for response in responses]
+                    output_token_ids = [[output.token_ids for output in response.outputs] for response in responses]
+                    # flatten the list
+                    output_token_ids = [item for sublist in output_token_ids for item in sublist]
                     tokenizer.pad_token_id = tokenizer.eos_token_id
 
                     padded_response_token_ids = []
@@ -346,9 +349,9 @@ class RLOOTrainer(Trainer):
                     # ]
                         # if args.remove_duplicate_response_pad_tokens: # NOTE: micro optimization: remove the pad to longest
                         #     local_responses = local_responses[:, :(local_responses != tokenizer.pad_token_id).sum(1).max()]
-                    queries_responses = torch.cat((queries, local_responses), 1)
+                    queries_responses = torch.cat((repeated_queries, local_responses), 1)
                     for i in range(0, queries.shape[0], args.local_rollout_forward_batch_size):
-                        query = queries[i : i + args.local_rollout_forward_batch_size]
+                        query = repeated_queries[i : i + args.local_rollout_forward_batch_size]
                         query_response = queries_responses[i : i + args.local_rollout_forward_batch_size]
                         response = query_response[:, context_length:]
 
@@ -436,15 +439,12 @@ class RLOOTrainer(Trainer):
                 # we generated `self.args.rloo_k` many responses per prompt
                 # now we can implement the RLOO loss by subtracting the reward of
                 # a response by the average rewards of other `rloo_k - 1` responses
-                advantages = torch.zeros_like(rlhf_reward)
-                for i in range(0, len(advantages), args.local_batch_size):
-                    other_response_rlhf_rewards = []
-                    for j in range(0, len(advantages), args.local_batch_size):
-                        if i != j:
-                            other_response_rlhf_rewards.append(rlhf_reward[j : j + args.local_batch_size])
-                    advantages[i : i + args.local_batch_size] = rlhf_reward[
-                        i : i + args.local_batch_size
-                    ] - torch.stack(other_response_rlhf_rewards).mean(0)
+
+                # KG: vectorized RLOO advantages implementation
+                rlhf_reward = rlhf_reward.reshape(args.rloo_k, -1)
+                baseline = (rlhf_reward.sum(0) - rlhf_reward) / (args.rloo_k - 1)
+                advantages = rlhf_reward - baseline
+                advantages = advantages.flatten()
                 torch.cuda.empty_cache()
 
             # Do multiple epochs of PPO training, with a fresh random shuffle in each epoch

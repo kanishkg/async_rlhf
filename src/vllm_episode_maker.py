@@ -21,10 +21,16 @@ def vllm_generate(
     llm = LLM(
         model=model_name_or_path,
         enforce_eager=True,
+        enable_prefix_caching=True,
         tensor_parallel_size=1,
         device=vllm_device,
         dtype=vllm_dtype,
         gpu_memory_utilization=vllm_gpu_memory_utilization,
+        max_num_seqs=64,
+        swap_space=64,
+        dtype=vllm_dtype,
+        max_model_len=2048,
+        device=vllm_device
     )
     print(f"🔥🔥🔥 vllm loaded")
 
