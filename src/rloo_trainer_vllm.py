@@ -320,24 +320,19 @@ class RLOOTrainer(Trainer):
                         for item in queries_list
                     ]
                     prompt_Q.put(g_queries_list)
-                    response_ids = response_ids_Q.get()
+                    responses = response_ids_Q.get()
 
-                    outputs = [response["text"] for response in responses.json()]
-
-
+                    output_token_ids = [response.outputs[0]['token_ids'] for response in responses]
                     tokenizer.pad_token_id = tokenizer.eos_token_id
-                    padded_response_token_ids = tokenizer(outputs, return_tensors="pt", max_length=args.response_length, padding="max_length", padding_side="right")["input_ids"]
-                    padded_response_token_ids = padded_response_token_ids.to(device)
 
-                    # padded_response_token_ids = []
-                    # for token_ids in output_token_ids:
-                    #     DUMMY_PAD_TOKEN = 0  # we can't use tokenizer.pad_token_id because it's outside vocab and `torch.gather(all_logprob, 2, response.unsqueeze(-1))` will error out
-                    #     padded_token_ids = token_ids + [DUMMY_PAD_TOKEN] * (args.response_length - len(token_ids))
-                    #     padded_response_token_ids.append(padded_token_ids)
-                    # padded_response_token_ids = torch.tensor(padded_response_token_ids, device=device)
+                    padded_response_token_ids = []
+                    for token_ids in output_token_ids:
+                        PAD_TOKEN = tokenizer.pad_token_id  # we can't use tokenizer.pad_token_id because it's outside vocab and `torch.gather(all_logprob, 2, response.unsqueeze(-1))` will error out
+                        padded_token_ids = token_ids + [PAD_TOKEN] * (args.response_length - len(token_ids))
+                        padded_response_token_ids.append(padded_token_ids)
+                    local_responses = torch.tensor(padded_response_token_ids, device=device)
                     # g_responses[:] = padded_response_token_ids
 
-                    local_responses = padded_response_token_ids
                     # broadcast(g_responses, 0)
                     # local_responses = g_responses[
                     #     accelerator.local_process_index
