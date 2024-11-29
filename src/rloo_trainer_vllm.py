@@ -275,8 +275,7 @@ class RLOOTrainer(Trainer):
             )
             thread.start()
             response_ids_Q, param_Q, prompt_Q = broadcast_object_list(
-                [response_ids_Q, param_Q, prompt_Q], 
-                device=accelerator.device
+                [response_ids_Q, param_Q, prompt_Q]
             )
         accelerator.wait_for_everyone()
 
