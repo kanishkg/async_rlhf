@@ -14,7 +14,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from accelerate import Accelerator
 from accelerate.state import AcceleratorState
-from accelerate.utils import broadcast, gather_object
+from accelerate.utils import broadcast, gather_object, broadcast_object_list
 from datasets import Dataset
 from torch.utils.data import DataLoader
 from transformers import (
@@ -277,9 +277,11 @@ class RLOOTrainer(Trainer):
 
         accelerator.wait_for_everyone()
         # send queue object to all accelerator ranks
-        response_ids_Q = accelerator.broadcast(response_ids_Q)
-        param_Q = accelerator.broadcast(param_Q)
-        prompt_Q = accelerator.broadcast(prompt_Q)
+        if not accelerator.is_main_process:
+            response_ids_Q, param_Q, prompt_Q = broadcast_object_list(
+                [response_ids_Q, param_Q, prompt_Q], 
+                device=accelerator.device
+            )
 
 
         for update in range(1, args.num_updates + 1):
