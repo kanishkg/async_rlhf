@@ -274,14 +274,12 @@ class RLOOTrainer(Trainer):
                 ),
             )
             thread.start()
-
-        accelerator.wait_for_everyone()
-        # send queue object to all accelerator ranks
-        if not accelerator.is_main_process:
             response_ids_Q, param_Q, prompt_Q = broadcast_object_list(
                 [response_ids_Q, param_Q, prompt_Q], 
                 device=accelerator.device
             )
+        accelerator.wait_for_everyone()
+
 
 
         for update in range(1, args.num_updates + 1):
