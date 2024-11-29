@@ -307,13 +307,13 @@ class RLOOTrainer(Trainer):
                     # g_queries_list = gather_object(queries.tolist())
 
 
-                    print(f"🔥🔥🔥 Sending requests to vllm {len(g_queries_list)}")
                     queries_list = queries.tolist()
                     g_queries_list = [
                         [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
                         for item in queries_list
                     ]
                     
+                    print(f"🔥🔥🔥 Sending requests to vllm {len(g_queries_list)}")
                     # run this sequentially on processes one by one
                     # TODO (KG): This can be parallelized; pass process id in the prompt_Q, and return it with the response_ids_Q
                     for i in range(accelerator.num_processes):
