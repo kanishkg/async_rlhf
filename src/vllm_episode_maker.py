@@ -28,7 +28,6 @@ def vllm_generate(
         gpu_memory_utilization=vllm_gpu_memory_utilization,
         max_num_seqs=64,
         swap_space=64,
-        dtype=vllm_dtype,
         max_model_len=2048,
     )
     print(f"🔥🔥🔥 vllm loaded")
