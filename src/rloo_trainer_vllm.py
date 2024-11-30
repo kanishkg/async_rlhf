@@ -452,6 +452,7 @@ class RLOOTrainer(Trainer):
                 # rlhf_reward = scores + non_score_reward
 
                 # KG: I think the above is wrong; we should not add KL divergence to the reward
+                scores = scores.to(device)
                 rlhf_reward = scores
 
                 # we generated `self.args.rloo_k` many responses per prompt
@@ -463,7 +464,6 @@ class RLOOTrainer(Trainer):
                 baseline = (rlhf_reward.sum(0) - rlhf_reward) / (args.rloo_k - 1)
                 advantages = rlhf_reward - baseline
                 advantages = advantages.flatten()
-                rlhf_reward = rlhf_reward.to(device)
                 # move to device
                 advantages = advantages.to(device)
                 torch.cuda.empty_cache()
