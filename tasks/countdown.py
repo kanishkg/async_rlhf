@@ -1,8 +1,9 @@
 import itertools
 import random
 from typing import Dict, List
+from transformers import AutoTokenizer
 
-PROMPT_TEMPLATE = """Instructions: Solve the problem step by step. If you think the answer is incorrect, revise your answer. Backtrack if you made a mistake.
+SYSTEM = """Solve the problem step by step. If you think the answer is incorrect, revise your answer. Backtrack if you made a mistake.
 Reflect and verify your answer. Right your thoughts in <answer> </answer> tags.
 The answer is a series of arithmetic operations (+, -, *, /) that results in the target number.
 
@@ -16,11 +17,10 @@ Example:
 Step 1: 1+2=3
 Step 2: 2*3=6
 Step 3: 6*4=24
-</final_answer>
+</final_answer>"""
+USER="Question: {q}"
+ASSISTANT="Let's think step by step:\n"
 
-Question: {q}
-
-<answer>Let's think step by step:\n\n"""
 def combine_nums(a, b):
     # Implicitly makes assumptions about the order of operations and valid operations
     a = int(a)
@@ -43,6 +43,7 @@ class CountDown(object):
         self.min_target = min_target
         self.start_size = start_size
         self.start_probs = start_probs
+        self.tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.1-8B-Instruct")
     
     def generate(self, target):
         if target > self.max_target:
@@ -64,8 +65,25 @@ class CountDown(object):
         target = random.randint(self.min_target, self.max_target)
         nums, solution = self.generate(target)
         
+        
         query = f"Find a sequence of arithmetic operations (+, -, *, /) that results in {target} using the numbers {', '.join(map(str, nums))}. Use each number exactly once.",
-        self.current_task = {"query": PROMPT_TEMPLATE.format(q=query)}
+        messages = [
+                {
+                    'role': 'system',
+                    'content': SYSTEM,
+                },
+                {
+                    'role': 'user',
+                    'content': USER.format(q=query),
+                },
+            ]
+        prompt = self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+            add_generation_prompt=True,
+        )
+        prompt += ASSISTANT
+        self.current_task = {"query": prompt}
         return self.current_task
 
     @staticmethod
