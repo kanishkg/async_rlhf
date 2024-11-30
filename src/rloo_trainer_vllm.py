@@ -463,6 +463,7 @@ class RLOOTrainer(Trainer):
                 baseline = (rlhf_reward.sum(0) - rlhf_reward) / (args.rloo_k - 1)
                 advantages = rlhf_reward - baseline
                 advantages = advantages.flatten()
+                rlhf_reward = rlhf_reward.to(device)
                 # move to device
                 advantages = advantages.to(device)
                 torch.cuda.empty_cache()
