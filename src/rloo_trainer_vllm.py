@@ -460,6 +460,7 @@ class RLOOTrainer(Trainer):
                 # a response by the average rewards of other `rloo_k - 1` responses
 
                 # KG: vectorized RLOO advantages implementation
+                print(f"shape of rlhf_reward: {rlhf_reward.shape}")
                 rlhf_reward = rlhf_reward.reshape(args.rloo_k, -1)
                 baseline = (rlhf_reward.sum(0) - rlhf_reward) / (args.rloo_k - 1)
                 advantages = rlhf_reward - baseline
