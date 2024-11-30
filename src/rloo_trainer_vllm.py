@@ -368,8 +368,10 @@ class RLOOTrainer(Trainer):
                         # if args.remove_duplicate_response_pad_tokens: # NOTE: micro optimization: remove the pad to longest
                         #     local_responses = local_responses[:, :(local_responses != tokenizer.pad_token_id).sum(1).max()]
                     queries_responses = torch.cat((repeated_queries, local_responses), 1)
+                    print(f"queries_responses shape: {queries_responses.shape}")
                     for i in range(0, queries.shape[0], args.local_rollout_forward_batch_size):
                         query = repeated_queries[i : i + args.local_rollout_forward_batch_size]
+                        print(f"query shape: {query.shape}")
                         query_response = queries_responses[i : i + args.local_rollout_forward_batch_size]
                         response = query_response[:, context_length:]
 
