@@ -576,8 +576,8 @@ class RLOOTrainer(Trainer):
             del kl, mean_kl, mean_entropy, scores
             torch.cuda.empty_cache()
 
-            if args.num_sample_generations > 0 and (update - 1) % self.sample_generations_freq == 0:
-                self.generate_completions(sampling=True)
+            # if args.num_sample_generations > 0 and (update - 1) % self.sample_generations_freq == 0:
+            #     self.generate_completions(sampling=True)
 
             self.state.global_step = global_step
             self.control = self.callback_handler.on_step_end(args, self.state, self.control)
