@@ -463,6 +463,8 @@ class RLOOTrainer(Trainer):
                 baseline = (rlhf_reward.sum(0) - rlhf_reward) / (args.rloo_k - 1)
                 advantages = rlhf_reward - baseline
                 advantages = advantages.flatten()
+                # move to device
+                advantages = advantages.to(device)
                 torch.cuda.empty_cache()
 
             # Do multiple epochs of PPO training, with a fresh random shuffle in each epoch
