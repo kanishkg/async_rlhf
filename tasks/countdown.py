@@ -73,6 +73,7 @@ class CountDown(object):
         # answer is a sequence of operations
         # written in the format Step 1: 1+2=3\nStep 2: 3*3=9, etc.
         try:
+            query = query.split("Question:")[1].strip()
             nums = query.split("using the numbers")[1].strip()
             nums = nums.split(". Use")[0].strip()
             nums = [int(num.strip()) for num in nums.split(",")]
