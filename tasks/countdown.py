@@ -100,7 +100,7 @@ class CountDown(object):
             print(nums, target)
             answer = answer.lower().strip()
             steps = answer.split("step")
-            print(steps)
+            # print(steps)
             parsed_steps = []
             # check if all steps are valid
             for s, step in enumerate(steps):
@@ -123,7 +123,6 @@ class CountDown(object):
                     if lhs_answer != target:
                         print(f"Last step {lhs_answer} != {target}")
                         return 0.0
-            print(parsed_steps)
             nums_to_use = nums.copy()
             # check if all numbers are used
             for s, step in enumerate(parsed_steps):
