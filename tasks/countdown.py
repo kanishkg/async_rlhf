@@ -99,6 +99,7 @@ class CountDown(object):
             target = int(target.split("using")[0].strip())
             print(nums, target)
             answer = answer.lower().strip()
+            print(answer)
             steps = answer.split("step")
             # print(steps)
             parsed_steps = []
