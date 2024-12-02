@@ -7,6 +7,7 @@ from multiprocessing import Manager
 import threading
 import requests
 import queue
+import gc
 
 import numpy as np
 import pandas as pd
@@ -56,14 +57,14 @@ from src.vllm_episode_maker import vllm_generate
 
 INVALID_LOGPROB = 1.0
 
-from multiprocessing.managers import BaseManager
+# from multiprocessing.managers import BaseManager
 
 # Define the same Manager class
-class QueueManager(BaseManager):
-    pass
+# class QueueManager(BaseManager):
+#     pass
 
-QueueManager.register('get_response_ids_Q')
-QueueManager.register('get_prompt_Q')
+# QueueManager.register('get_response_ids_Q')
+# QueueManager.register('get_prompt_Q')
 
 class RLOOTrainer(Trainer):
     def __init__(
@@ -265,19 +266,19 @@ class RLOOTrainer(Trainer):
 
 
         # Connect to the manager
-        manager = QueueManager(address=('localhost', 50000), authkey=b'secret')
-        manager.connect()
+        # manager = QueueManager(address=('localhost', 50000), authkey=b'secret')
+        # manager.connect()
 
         # Access the shared queues
-        response_ids_Q = manager.get_response_ids_Q()
-        prompt_Q = manager.get_prompt_Q()
+        # response_ids_Q = manager.get_response_ids_Q()
+        # prompt_Q = manager.get_prompt_Q()
         if accelerator.is_main_process:
             vllm_device = f"cuda:{accelerator.num_processes}"
             print(f"🔥🔥🔥 vllm device: {vllm_device}")
 
-            # response_ids_Q = Queue(maxsize=1)
+            response_ids_Q = queue.Queue(maxsize=1)
             param_Q = queue.Queue(maxsize=1)
-            # prompt_Q = queue.Queue(maxsize=1)
+            prompt_Q = queue.Queue(maxsize=1)
 
             thread = threading.Thread(
                 target=vllm_generate,
@@ -302,9 +303,13 @@ class RLOOTrainer(Trainer):
             global_step += 1 * args.batch_size
             self.lr_scheduler.step()
             data = next(iter_dataloader)
+            vllm_responses = torch.zeros(
+                (args.batch_size * args.rloo_k, args.response_length),
+                device=accelerator.device,
+                dtype=torch.long,
+            )
             with torch.no_grad():
                 queries = data["input_ids"].to(device)
-                # TODO: (KG) This is slow; we should use parallel sampling from vllm or sglang 
                 repeated_queries = queries.repeat(args.rloo_k, 1)
                 context_length = queries.shape[1]
                 query_responses = []
@@ -317,118 +322,83 @@ class RLOOTrainer(Trainer):
                 # save model parameters
                 accelerator.wait_for_everyone()
 
-                with unwrap_model_for_generation(model, self.accelerator) as unwrapped_model:
-                    if self.accelerator.is_main_process:
-                        # update sglang model
-                        print("🔥🔥🔥 Updating weights")
-                        start_time = time.time()
-                        param_Q.put(unwrapped_model.named_parameters())
-                        
-                    accelerator.wait_for_everyone()
-                    # KG: Changed this so that it is distributed and not just on main process
-                    # print("gathering queries")
-                    # start_time = time.time()
-                    # g_queries_list = gather_object(queries.tolist())
-
-
-                    queries_list = queries.tolist()
+                g_queries_list = gather_object(queries.tolist())
+                if self.accelerator.is_main_process:
+                    # update sglang model
+                    print("🔥🔥🔥 Updating weights")
+                    start_time = time.time()
+                    # param_Q.put(unwrapped_model.named_parameters())
+                    model_named_parameters = accelerator._get_named_parameters(model)
+                    param_Q.put(model_named_parameters)
                     g_queries_list = [
                         [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
-                        for item in queries_list
-                    ]
+                        for item in g_queries_list
+                    ] 
                     
                     print(f"🔥🔥🔥 Sending requests to vllm {len(g_queries_list)}")
-                    # run this sequentially on processes one by one
-                    # TODO (KG): This can be parallelized; pass process id in the prompt_Q, and return it with the response_ids_Q
-                    for i in range(accelerator.num_processes):
-                        if i == accelerator.local_process_index:
-                            print("processing queries for process", i)
-                            prompt_Q.put(g_queries_list)
-                            responses_vllm = response_ids_Q.get()
+                    prompt_Q.put(g_queries_list)
+                    g_response_ids = response_ids_Q.get()
 
-                    output_token_ids = [[list(output.token_ids) for output in response.outputs] for response in responses_vllm]
+                    output_token_ids = [[list(output.token_ids) for output in response.outputs] for response in g_response_ids]
                     # flatten the list
                     output_token_ids = [item for sublist in output_token_ids for item in sublist]
                     tokenizer.pad_token_id = tokenizer.eos_token_id
 
-                    padded_response_token_ids = []
-                    for token_ids in output_token_ids:
-                        PAD_TOKEN = tokenizer.pad_token_id  # we can't use tokenizer.pad_token_id because it's outside vocab and `torch.gather(all_logprob, 2, response.unsqueeze(-1))` will error out
-                        padded_token_ids = token_ids + [PAD_TOKEN] * (args.response_length - len(token_ids))
-                        padded_response_token_ids.append(padded_token_ids)
-                    local_responses = torch.tensor(padded_response_token_ids, device=device)
-                    # g_responses[:] = padded_response_token_ids
+                    DUMMY_PAD_TOKEN = tokenizer.pad_token_id # we can't use tokenizer.pad_token_id because it's outside vocab and `torch.gather(all_logprob, 2, response.unsqueeze(-1))` will error out
+                    g_padded_response_ids = [
+                        list(response) + [DUMMY_PAD_TOKEN] * (args.response_length - len(response))
+                        for response in output_token_ids 
+                    ]
+                    g_padded_response_ids = torch.tensor(g_padded_response_ids, device=device)
+                    vllm_responses[:] = g_padded_response_ids
 
-                    # broadcast(g_responses, 0)
-                    # local_responses = g_responses[
-                    #     accelerator.local_process_index
-                    #     * queries.shape[0] : (accelerator.local_process_index + 1)
-                    #     * queries.shape[0]
-                    # ]
-                        # if args.remove_duplicate_response_pad_tokens: # NOTE: micro optimization: remove the pad to longest
-                        #     local_responses = local_responses[:, :(local_responses != tokenizer.pad_token_id).sum(1).max()]
-                    queries_responses = torch.cat((repeated_queries, local_responses), 1)
-                    print(f"queries_responses shape: {queries_responses.shape}")
-                    for i in range(0, queries.shape[0], args.local_rollout_forward_batch_size):
-                        query = repeated_queries[i : i + args.local_rollout_forward_batch_size]
-                        print(f"query shape: {query.shape}")
-                        query_response = queries_responses[i : i + args.local_rollout_forward_batch_size]
-                        response = query_response[:, context_length:]
+                broadcast(vllm_responses, 0)
+                local_vllm_responses = vllm_responses[
+                    accelerator.local_process_index * queries.shape[0] : (accelerator.local_process_index + 1)
+                    * queries.shape[0]
+                ]
+                context_length = queries.shape[1]
+                query_responses = torch.cat((queries, local_vllm_responses), 1)
 
-                        output = forward(unwrapped_model, query_response, tokenizer.pad_token_id)
-                        logits = output.logits[:, context_length - 1 : -1]
-                        logits /= args.temperature + 1e-7
-                        all_logprob = F.log_softmax(logits, dim=-1)
-                        logprob = torch.gather(all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
-                        del output, logits, all_logprob
-                        torch.cuda.empty_cache()
+                for i in range(0, queries.shape[0], args.local_rollout_forward_batch_size):
+                    query = repeated_queries[i : i + args.local_rollout_forward_batch_size]
+                    query_response = query_responses[i : i + args.local_rollout_forward_batch_size]
+                    response = query_response[:, context_length:]
 
-                        ref_output = forward(ref_policy, query_response, tokenizer.pad_token_id)
-                        ref_logits = ref_output.logits[:, context_length - 1 : -1]
-                        ref_logits /= args.temperature + 1e-7
-                        ref_all_logprob = F.log_softmax(ref_logits, dim=-1)
-                        ref_logprob = torch.gather(ref_all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
-                        del ref_output, ref_logits, ref_all_logprob
-                        torch.cuda.empty_cache()
+                    # Response Processing 1. truncate response after the first occurrence of `truncate_token_id`
+                    postprocessed_response = response
+                    if args.stop_token_id is not None:  # handle the edge case when stop_token_id exists but is 0
+                        postprocessed_response = truncate_response(
+                            args.stop_token_id, tokenizer.pad_token_id, response
+                        )
 
-                        # Response Processing 1. truncate response after the first occurrence of `truncate_token_id`
-                        postprocessed_response = response
-                        if args.stop_token_id is not None:  # handle the edge case when stop_token_id exists but is 0
-                            postprocessed_response = truncate_response(
-                                args.stop_token_id, tokenizer.pad_token_id, response
-                            )
+                    # Response Processing 2. run reward model on the truncated responses
+                    postprocessed_query_response = torch.cat((query, postprocessed_response), 1)
+                    sequence_length = first_true_indices(postprocessed_response == tokenizer.pad_token_id) - 1
+                    if reward_model is not None:
+                        _, score, _ = get_reward(
+                            reward_model, postprocessed_query_response, tokenizer.pad_token_id, context_length
+                        )
+                    else:
+                        # use reward function
+                        # decode the responses and queries
+                        response_text = tokenizer.batch_decode(postprocessed_response, skip_special_tokens=True)
+                        query_text = tokenizer.batch_decode(query, skip_special_tokens=True)
+                        score = []
+                        for q, r in zip(query_text, response_text):
+                            s = self.reward_fn(q, r)
+                            score.append(s)
+                        
 
-                        # Response Processing 2. run reward model on the truncated responses
-                        postprocessed_query_response = torch.cat((query, postprocessed_response), 1)
-                        sequence_length = first_true_indices(postprocessed_response == tokenizer.pad_token_id) - 1
-                        if reward_model is not None:
-                            _, score, _ = get_reward(
-                                reward_model, postprocessed_query_response, tokenizer.pad_token_id, context_length
-                            )
-                        else:
-                            # use reward function
-                            # decode the responses and queries
-                            response_text = tokenizer.batch_decode(postprocessed_response, skip_special_tokens=True)
-                            query_text = tokenizer.batch_decode(query, skip_special_tokens=True)
-                            score = []
-                            for q, r in zip(query_text, response_text):
-                                s = self.reward_fn(q, r)
-                                score.append(s)
-                            
-
-                        query_responses.append(query_response)
-                        responses.append(response)
-                        postprocessed_responses.append(postprocessed_response)
-                        logprobs.append(logprob)
-                        ref_logprobs.append(ref_logprob)
-                        sequence_lengths.append(sequence_length)
-                        scores.append(torch.tensor(score))
+                    query_responses.append(query_response)
+                    responses.append(response)
+                    postprocessed_responses.append(postprocessed_response)
+                    sequence_lengths.append(sequence_length)
+                    scores.append(torch.tensor(score))
                 accelerator.wait_for_everyone()
                 query_responses = torch.cat(query_responses, 0)
                 responses = torch.cat(responses, 0)
                 postprocessed_responses = torch.cat(postprocessed_responses, 0)
-                logprobs = torch.cat(logprobs, 0)
-                ref_logprobs = torch.cat(ref_logprobs, 0)
                 sequence_lengths = torch.cat(sequence_lengths, 0)
                 scores = torch.cat(scores, 0)
                 del (logprob, ref_logprob, score)
@@ -469,6 +439,8 @@ class RLOOTrainer(Trainer):
                 advantages = advantages.flatten()
                 # move to device
                 advantages = advantages.to(device)
+                torch.cuda.empty_cache()
+                gc.collect()
                 torch.cuda.empty_cache()
 
             # Do multiple epochs of PPO training, with a fresh random shuffle in each epoch
