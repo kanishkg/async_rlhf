@@ -399,7 +399,6 @@ class RLOOTrainer(Trainer):
                 postprocessed_responses = torch.cat(postprocessed_responses, 0)
                 sequence_lengths = torch.cat(sequence_lengths, 0)
                 scores = torch.cat(scores, 0)
-                del (logprob, ref_logprob, score)
                 torch.cuda.empty_cache()
 
                 # Response Processing 3. filter response. Ensure that the sample contains truncate_token_id
