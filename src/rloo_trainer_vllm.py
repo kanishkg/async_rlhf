@@ -388,13 +388,14 @@ class RLOOTrainer(Trainer):
                         for q, r in zip(query_text, response_text):
                             s = self.reward_fn(q, r)
                             score.append(s)
+                    del postprocessed_query_response
                         
 
                     responses.append(response)
                     postprocessed_responses.append(postprocessed_response)
                     sequence_lengths.append(sequence_length)
                     scores.append(torch.tensor(score))
-                accelerator.wait_for_everyone()
+
                 responses = torch.cat(responses, 0)
                 postprocessed_responses = torch.cat(postprocessed_responses, 0)
                 sequence_lengths = torch.cat(sequence_lengths, 0)
@@ -436,7 +437,6 @@ class RLOOTrainer(Trainer):
                 advantages = advantages.flatten()
                 # move to device
                 advantages = advantages.to(device)
-                torch.cuda.empty_cache()
                 gc.collect()
                 torch.cuda.empty_cache()
 
@@ -455,6 +455,7 @@ class RLOOTrainer(Trainer):
                         mb_responses = responses[micro_batch_inds]
                         mb_query_responses = query_responses[micro_batch_inds]
 
+                        print(f"Computing ref logprobs")
                         with torch.no_grad():
                             ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
                             ref_logits = ref_output.logits[:, context_length - 1 : -1]
@@ -463,6 +464,8 @@ class RLOOTrainer(Trainer):
                             ref_logprobs = torch.gather(ref_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
                             ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
 
+                        torch.cuda.empty_cache()
+                        print(f"Computing logprobs")
                         with accelerator.accumulate(model):
                             # mb_logprobs = logprobs[micro_batch_inds]
 
@@ -476,7 +479,7 @@ class RLOOTrainer(Trainer):
                             )
 
                             # KG: compute approx kl
-                            kl = 0.5 * (new_logprobs - ref_logprobs[micro_batch_inds])**2
+                            kl = 0.5 * (new_logprobs - ref_logprobs)**2
                             kl = kl.sum(1)
 
                             # new_ratio = (new_logprobs - mb_logprobs).exp()
