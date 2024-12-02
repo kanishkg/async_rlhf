@@ -449,12 +449,21 @@ class RLOOTrainer(Trainer):
                     mini_batch_inds = b_inds[mini_batch_start:mini_batch_end]
                     gradient_accumulation_idx = 0
                     for micro_batch_start in range(0, args.local_mini_batch_size, args.per_device_train_batch_size):
+                        micro_batch_end = micro_batch_start + args.per_device_train_batch_size
+                        micro_batch_inds = mini_batch_inds[micro_batch_start:micro_batch_end]
+                        mb_advantage = advantages[micro_batch_inds]
+                        mb_responses = responses[micro_batch_inds]
+                        mb_query_responses = query_responses[micro_batch_inds]
+
+                        with torch.no_grad():
+                            ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
+                            ref_logits = ref_output.logits[:, context_length - 1 : -1]
+                            ref_logits /= args.temperature + 1e-7
+                            ref_all_logprobs = F.log_softmax(ref_logits, dim=-1)
+                            ref_logprobs = torch.gather(ref_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
+                            ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
+
                         with accelerator.accumulate(model):
-                            micro_batch_end = micro_batch_start + args.per_device_train_batch_size
-                            micro_batch_inds = mini_batch_inds[micro_batch_start:micro_batch_end]
-                            mb_advantage = advantages[micro_batch_inds]
-                            mb_responses = responses[micro_batch_inds]
-                            mb_query_responses = query_responses[micro_batch_inds]
                             # mb_logprobs = logprobs[micro_batch_inds]
 
                             output = forward(model, mb_query_responses, tokenizer.pad_token_id)
