@@ -390,7 +390,6 @@ class RLOOTrainer(Trainer):
                             score.append(s)
                         
 
-                    query_responses.append(query_response)
                     responses.append(response)
                     postprocessed_responses.append(postprocessed_response)
                     sequence_lengths.append(sequence_length)
