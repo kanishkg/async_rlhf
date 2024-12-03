@@ -397,9 +397,6 @@ class RLOOTrainer(Trainer):
                         # NOTE: query text here is not repeated
                         for q, r in zip(query_text, response_text):
                             s = self.reward_fn(q, r)
-                            if accelerator.is_main_process:
-                                print(f"{q} -> {r} -> {s}")
-                                import pdb; pdb.set_trace()
                             score.append(s)
                     del postprocessed_query_response
                         
