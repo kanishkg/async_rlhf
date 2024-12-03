@@ -444,6 +444,8 @@ class RLOOTrainer(Trainer):
                 gc.collect()
                 torch.cuda.empty_cache()
 
+            print(f"===training policy===")
+            start_time = time.time()
             # Do multiple epochs of PPO training, with a fresh random shuffle in each epoch
             for ppo_epoch_idx in range(args.num_ppo_epochs):
                 b_inds = np.random.permutation(args.local_batch_size)
@@ -533,6 +535,7 @@ class RLOOTrainer(Trainer):
                 #     f"pg_clipfrac: {pg_clipfrac_stats[:ppo_epoch_idx + 1].mean().item():.4f}",
                 #     f"ratio: {ratio_stats[:ppo_epoch_idx + 1].mean().item():.4f}",
                 # )
+            print(f"===training policy time = {time.time()-start_time}===")
             with torch.no_grad():
                 rlhf_reward_mean = self.accelerator.gather(rlhf_reward).mean().item()
                 accelerator.print(f"{rlhf_reward_mean=}")
