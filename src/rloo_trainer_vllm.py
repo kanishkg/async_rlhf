@@ -495,7 +495,8 @@ class RLOOTrainer(Trainer):
 
                             # KG: We should add kl directly to the loss
                             pg_loss = -mb_advantage * new_logprobs
-                            loss = pg_loss.mean() + args.kl_coef * kl.mean()
+                            pg_loss = pg_loss.mean() 
+                            loss = pg_loss + args.kl_coef * kl.mean()
 
                             accelerator.backward(loss)
                             optimizer.step()
