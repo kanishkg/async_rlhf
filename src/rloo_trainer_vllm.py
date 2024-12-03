@@ -320,7 +320,6 @@ class RLOOTrainer(Trainer):
                 scores = []
                 sequence_lengths = []
                 # save model parameters
-                accelerator.wait_for_everyone()
 
                 g_queries_list = gather_object(queries.tolist())
                 if self.accelerator.is_main_process:
@@ -352,7 +351,10 @@ class RLOOTrainer(Trainer):
                     g_padded_response_ids = torch.tensor(g_padded_response_ids, device=device)
                     vllm_responses[:] = g_padded_response_ids
 
+
+                accelerator.wait_for_everyone()
                 broadcast(vllm_responses, 0)
+                accelerator.wait_for_everyone()
                 local_vllm_responses = vllm_responses[
                     accelerator.local_process_index * queries.shape[0] : (accelerator.local_process_index + 1)
                     * queries.shape[0]
@@ -430,7 +432,7 @@ class RLOOTrainer(Trainer):
                 # a response by the average rewards of other `rloo_k - 1` responses
 
                 # KG: vectorized RLOO advantages implementation
-                print(f"shape of rlhf_reward: {rlhf_reward.shape}")
+                # print(f"shape of rlhf_reward: {rlhf_reward.shape}")
                 rlhf_reward = rlhf_reward.reshape(args.rloo_k, -1)
                 baseline = (rlhf_reward.sum(0) - rlhf_reward) / (args.rloo_k - 1)
                 advantages = rlhf_reward - baseline
@@ -455,7 +457,7 @@ class RLOOTrainer(Trainer):
                         mb_responses = responses[micro_batch_inds]
                         mb_query_responses = query_responses[micro_batch_inds]
 
-                        print(f"Computing ref logprobs")
+                        print(f"Computing ref logprobs {accelerator.local_process_index}")
                         with torch.no_grad():
                             ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
                             ref_logits = ref_output.logits[:, context_length - 1 : -1]
@@ -465,7 +467,7 @@ class RLOOTrainer(Trainer):
                             ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
 
                         torch.cuda.empty_cache()
-                        print(f"Computing logprobs")
+                        print(f"Computing logprobs {accelerator.local_process_index}")
                         with accelerator.accumulate(model):
                             # mb_logprobs = logprobs[micro_batch_inds]
 
