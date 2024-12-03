@@ -537,7 +537,7 @@ class RLOOTrainer(Trainer):
                 rlhf_reward_mean = self.accelerator.gather(rlhf_reward).mean().item()
                 accelerator.print(f"{rlhf_reward_mean=}")
                 mean_kl = kl.mean()
-                mean_entropy = (-logprobs).sum(1).mean()
+                mean_entropy = (-new_logprobs).mean()
                 # mean_non_score_reward = non_score_reward.mean()
                 eps = int(global_step / (time.time() - start_time))
                 metrics = {}
