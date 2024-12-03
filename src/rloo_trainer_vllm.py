@@ -521,7 +521,7 @@ class RLOOTrainer(Trainer):
                     # fmt: off
                     del (
                         output, logits, new_all_logprobs, new_logprobs,
-                        pg_loss, loss, prob_dist, entropy, approxkl,
+                        pg_loss, loss, prob_dist, approxkl,
                         mb_advantage, mb_responses, mb_query_responses,
                     )
                     # fmt: on
@@ -537,7 +537,7 @@ class RLOOTrainer(Trainer):
                 rlhf_reward_mean = self.accelerator.gather(rlhf_reward).mean().item()
                 accelerator.print(f"{rlhf_reward_mean=}")
                 mean_kl = kl.mean()
-                mean_entropy = (-new_logprobs).mean()
+                mean_entropy = entropy.mean()
                 # mean_non_score_reward = non_score_reward.mean()
                 eps = int(global_step / (time.time() - start_time))
                 metrics = {}
@@ -560,7 +560,7 @@ class RLOOTrainer(Trainer):
                 metrics["episode"] = global_step
                 self.state.epoch = global_step / self.train_dataset_len  # used by self.log
                 self.log(metrics)
-            del kl, mean_kl, mean_entropy, scores
+            del kl, mean_kl, mean_entropy, scores, new_logprobs
             torch.cuda.empty_cache()
 
             # KG: Skip eval loop for now
