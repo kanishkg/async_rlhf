@@ -1,3 +1,4 @@
+import re
 import itertools
 import random
 from typing import Dict, List
@@ -20,6 +21,20 @@ Step 3: 6*4=24
 </final_answer>"""
 USER="Question: {q}"
 ASSISTANT="Let's think step by step:\n"
+
+def parse_solutions_words(result):
+    result = result.strip()
+    if "</final_answer>" not in result:
+        print(f"warning, no answer found: {result}")
+        return None
+    try:
+        answer = re.findall(r"<final_answer>(.*?)</final_answer>", result, re.DOTALL)[-1]
+    except:
+        print(f"warning, no answer found: {result}")
+        answer = None
+    # print(f"Result raw: {result}")
+    # print(f"Answer raw: {answer}")
+    return answer
 
 def combine_nums(a, b):
     # Implicitly makes assumptions about the order of operations and valid operations
@@ -98,6 +113,7 @@ class CountDown(object):
             target = query.split("results in")[1].strip()
             target = int(target.split("using")[0].strip())
             print(nums, target)
+            answer = parse_solutions_words(answer)
             answer = answer.lower().strip()
             steps = answer.split("step")
             # print(steps)
