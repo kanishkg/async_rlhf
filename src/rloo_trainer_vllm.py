@@ -355,12 +355,14 @@ class RLOOTrainer(Trainer):
                 accelerator.wait_for_everyone()
                 broadcast(vllm_responses, 0)
                 accelerator.wait_for_everyone()
+
+                # TODO: Make sure rloo_k is matched for queries and responses
                 local_vllm_responses = vllm_responses[
-                    accelerator.local_process_index * queries.shape[0] : (accelerator.local_process_index + 1)
-                    * queries.shape[0]
+                    accelerator.local_process_index * repeated_queries.shape[0] : (accelerator.local_process_index + 1)
+                    * repeated_queries.shape[0]
                 ]
-                context_length = queries.shape[1]
-                query_responses = torch.cat((queries, local_vllm_responses), 1)
+                context_length = repeated_queries.shape[1]
+                query_responses = torch.cat((repeated_queries, local_vllm_responses), 1)
 
                 for i in range(0, queries.shape[0], args.local_rollout_forward_batch_size):
                     query = repeated_queries[i : i + args.local_rollout_forward_batch_size]
