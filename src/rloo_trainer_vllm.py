@@ -361,8 +361,10 @@ class RLOOTrainer(Trainer):
                     accelerator.local_process_index * repeated_queries.shape[0] : (accelerator.local_process_index + 1)
                     * repeated_queries.shape[0]
                 ]
+                print(f"===== local_vllm_responses.shape: {local_vllm_responses.shape} ======")
                 context_length = repeated_queries.shape[1]
                 query_responses = torch.cat((repeated_queries, local_vllm_responses), 1)
+                print(f"===== query_responses.shape: {query_responses.shape} ======")
 
                 for i in range(0, queries.shape[0], args.local_rollout_forward_batch_size):
                     query = repeated_queries[i : i + args.local_rollout_forward_batch_size]
@@ -393,6 +395,9 @@ class RLOOTrainer(Trainer):
                         print(len(query_text), len(response_text))
                         for q, r in zip(query_text, response_text):
                             s = self.reward_fn(q, r)
+                            if accelerator.is_main_process:
+                                print(f"{q} -> {r} -> {s}")
+                                import pdb; pdb.set_trace()
                             score.append(s)
                     del postprocessed_query_response
                         
