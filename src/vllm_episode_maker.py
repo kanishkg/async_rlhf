@@ -32,6 +32,7 @@ def vllm_generate(
         max_model_len=2048,
     )
     print(f"🔥🔥🔥 vllm loaded")
+    print(f"🔥🔥🔥 samppling params {sampling_params}")
 
     llmp = llm.llm_engine.model_executor.driver_worker.model_runner.model
 
