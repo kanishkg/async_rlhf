@@ -457,7 +457,6 @@ class RLOOTrainer(Trainer):
                         mb_responses = responses[micro_batch_inds]
                         mb_query_responses = query_responses[micro_batch_inds]
 
-                        print(f"Computing ref logprobs {accelerator.local_process_index}")
                         with torch.no_grad():
                             ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
                             ref_logits = ref_output.logits[:, context_length - 1 : -1]
@@ -467,7 +466,6 @@ class RLOOTrainer(Trainer):
                             ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
 
                         torch.cuda.empty_cache()
-                        print(f"Computing logprobs {accelerator.local_process_index}")
                         with accelerator.accumulate(model):
                             # mb_logprobs = logprobs[micro_batch_inds]
 
