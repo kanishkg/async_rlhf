@@ -361,10 +361,8 @@ class RLOOTrainer(Trainer):
                     accelerator.local_process_index * repeated_queries.shape[0] : (accelerator.local_process_index + 1)
                     * repeated_queries.shape[0]
                 ]
-                print(f"===== local_vllm_responses.shape: {local_vllm_responses.shape} ======")
                 context_length = repeated_queries.shape[1]
                 query_responses = torch.cat((repeated_queries, local_vllm_responses), 1)
-                print(f"===== query_responses.shape: {query_responses.shape} ======")
 
                 for i in range(0, queries.shape[0], args.local_rollout_forward_batch_size):
                     query = repeated_queries[i : i + args.local_rollout_forward_batch_size]
@@ -389,12 +387,8 @@ class RLOOTrainer(Trainer):
                         # use reward function
                         # decode the responses and queries
                         response_text = tokenizer.batch_decode(postprocessed_response, skip_special_tokens=True)
-                        # NOTE: query here is not repeated
                         query_text = tokenizer.batch_decode(query, skip_special_tokens=True)
                         score = []
-                        print("==== query_text, response_text ====")
-                        print(len(query_text), len(response_text))
-                        # NOTE: query text here is not repeated
                         for q, r in zip(query_text, response_text):
                             s = self.reward_fn(q, r)
                             score.append(s)
