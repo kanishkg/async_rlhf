@@ -74,7 +74,7 @@ if __name__ == "__main__":
         os.environ["WANDB_RUN_ID"] = run_id + "_" + config_name
     else:
         os.environ["WANDB_RUN_ID"] = args.wandb_run_id
-        wandb_init_kwargs = {"id": args.wandb_run_id, "name": args.wandb_run_id, "entity": os.environ.get("WANDB_ENTITY"), "project": os.environ.get("WANDB_PROJECT")}
+        wandb_init_kwargs = {"name": args.wandb_run_id, "entity": os.environ.get("WANDB_ENTITY"), "project": os.environ.get("WANDB_PROJECT")}
     
     wandb.init(**wandb_init_kwargs)
 
