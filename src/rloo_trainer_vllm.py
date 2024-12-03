@@ -10,6 +10,7 @@ import queue
 import gc
 
 import numpy as np
+import tqdm
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -454,7 +455,7 @@ class RLOOTrainer(Trainer):
                     mini_batch_end = mini_batch_start + args.local_mini_batch_size
                     mini_batch_inds = b_inds[mini_batch_start:mini_batch_end]
                     gradient_accumulation_idx = 0
-                    for micro_batch_start in range(0, args.local_mini_batch_size, args.per_device_train_batch_size):
+                    for micro_batch_start in tqdm.tqdm(range(0, args.local_mini_batch_size, args.per_device_train_batch_size)):
                         micro_batch_end = micro_batch_start + args.per_device_train_batch_size
                         micro_batch_inds = mini_batch_inds[micro_batch_start:micro_batch_end]
                         mb_advantage = advantages[micro_batch_inds]
