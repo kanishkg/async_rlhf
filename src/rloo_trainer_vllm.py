@@ -389,6 +389,8 @@ class RLOOTrainer(Trainer):
                         response_text = tokenizer.batch_decode(postprocessed_response, skip_special_tokens=True)
                         query_text = tokenizer.batch_decode(query, skip_special_tokens=True)
                         score = []
+                        print("==== query_text, response_text ====")
+                        print(len(query_text), len(response_text))
                         for q, r in zip(query_text, response_text):
                             s = self.reward_fn(q, r)
                             score.append(s)
