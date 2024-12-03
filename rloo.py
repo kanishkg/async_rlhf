@@ -15,6 +15,7 @@ from accelerate import Accelerator
 from trl import ModelConfig
 from trl.trainer.rloo_trainer import RLOOConfig
 
+import wandb
 
 from src.online_bok_trainer import OnlineBoKTrainer
 from src.rloo_trainer import MyRLOOTrainer as RLOOTrainer
@@ -74,6 +75,8 @@ if __name__ == "__main__":
     else:
         os.environ["WANDB_RUN_ID"] = args.wandb_run_id
         wandb_init_kwargs = {"id": args.wandb_run_id, "name": args.wandb_run_id, "entity": os.environ.get("WANDB_ENTITY"), "project": os.environ.get("WANDB_PROJECT")}
+    
+    wandb.init(**wandb_init_kwargs)
 
     ################
     # Model & Tokenizer
