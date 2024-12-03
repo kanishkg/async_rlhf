@@ -310,7 +310,7 @@ class RLOOTrainer(Trainer):
             )
             with torch.no_grad():
                 queries = data["input_ids"].to(device)
-                repeated_queries = queries.repeat(args.rloo_k, 1)
+                repeated_queries = queries.repeat_interleave(args.rloo_k, dim=0)
                 context_length = queries.shape[1]
                 query_responses = []
                 responses = []
@@ -389,10 +389,12 @@ class RLOOTrainer(Trainer):
                         # use reward function
                         # decode the responses and queries
                         response_text = tokenizer.batch_decode(postprocessed_response, skip_special_tokens=True)
+                        # NOTE: query here is not repeated
                         query_text = tokenizer.batch_decode(query, skip_special_tokens=True)
                         score = []
                         print("==== query_text, response_text ====")
                         print(len(query_text), len(response_text))
+                        # NOTE: query text here is not repeated
                         for q, r in zip(query_text, response_text):
                             s = self.reward_fn(q, r)
                             if accelerator.is_main_process:

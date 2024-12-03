@@ -19,8 +19,7 @@ Step 1: 1+2=3
 Step 2: 2*3=6
 Step 3: 6*4=24
 </final_answer>"""
-USER="Question: {q}"
-ASSISTANT="Let's think step by step:\n"
+ASSISTANT="<answer>Let's think step by step:\n"
 
 def parse_solutions_words(result):
     result = result.strip()
@@ -81,7 +80,7 @@ class CountDown(object):
         nums, solution = self.generate(target)
         
         
-        query = f"Find a sequence of arithmetic operations (+, -, *, /) that results in {target} using the numbers {', '.join(map(str, nums))}. Use each number exactly once.",
+        query = f"Question: Find a sequence of arithmetic operations (+, -, *, /) that results in {target} using the numbers {', '.join(map(str, nums))}. Use each number exactly once.",
         messages = [
                 {
                     'role': 'system',
@@ -89,7 +88,7 @@ class CountDown(object):
                 },
                 {
                     'role': 'user',
-                    'content': USER.format(q=query),
+                    'content': query,
                 },
             ]
         prompt = self.tokenizer.apply_chat_template(
