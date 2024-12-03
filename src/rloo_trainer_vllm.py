@@ -470,7 +470,6 @@ class RLOOTrainer(Trainer):
                             ref_logprobs = torch.gather(ref_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
                             ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
 
-                        torch.cuda.empty_cache()
                         with accelerator.accumulate(model):
                             # mb_logprobs = logprobs[micro_batch_inds]
 
