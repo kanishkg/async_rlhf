@@ -348,7 +348,7 @@ class RLOOTrainer(Trainer):
                     for key, value in model_named_parameters.items():
                         # remove _orig_mod prefix from the key
                         new_key = key.replace("_orig_mod.", "")
-                        new_model_named_parameters[new_key] = model_named_parameters.pop(key)
+                        new_model_named_parameters[new_key] = model_named_parameters[key]
                     del model_named_parameters
                     
                     print(new_model_named_parameters.keys())
