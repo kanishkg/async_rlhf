@@ -277,8 +277,8 @@ class RLOOTrainer(Trainer):
             vllm_device = f"cuda:{accelerator.num_processes}"
             print(f"🔥🔥🔥 vllm device: {vllm_device}")
 
-            response_ids_Q = Queue(maxsize=1)
-            param_prompt_Q = Queue(maxsize=1)
+            response_ids_Q = queue.Queue(maxsize=1)
+            param_prompt_Q = queue.Queue(maxsize=1)
 
             thread = threading.Thread(
                 target=vllm_generate,
@@ -311,7 +311,7 @@ class RLOOTrainer(Trainer):
             # process = Process(target=vllm_generate, args=(args.sft_model_path, self.sampling_params, vllm_device, "bfloat16", 0.95, param_Q, prompt_Q, response_ids_Q))
             # process.start()
 
-        accelerator.wait_for_everyone()
+        # accelerator.wait_for_everyone()
 
 
 
@@ -373,9 +373,9 @@ class RLOOTrainer(Trainer):
                     vllm_responses[:] = g_padded_response_ids
 
 
-                accelerator.wait_for_everyone()
+                # accelerator.wait_for_everyone()
                 broadcast(vllm_responses, 0)
-                accelerator.wait_for_everyone()
+                # accelerator.wait_for_everyone()
 
                 local_vllm_responses = vllm_responses[
                     accelerator.local_process_index * repeated_queries.shape[0] : (accelerator.local_process_index + 1)
