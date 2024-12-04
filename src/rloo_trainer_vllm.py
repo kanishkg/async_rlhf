@@ -445,6 +445,7 @@ class RLOOTrainer(Trainer):
 
             print(f"===training policy===")
             start_time = time.time()
+            kl_coeff = torch.tensor(args.kl_coef, device=device)
             # Do multiple epochs of PPO training, with a fresh random shuffle in each epoch
             for ppo_epoch_idx in range(args.num_ppo_epochs):
                 b_inds = np.random.permutation(args.local_batch_size)
@@ -484,7 +485,7 @@ class RLOOTrainer(Trainer):
                             # kl = kl.sum(1)
 
 
-                            loss, pg_loss, kl = fused_loss_computation(new_logprobs, ref_logprobs, mb_advantage, args.kl_coef)
+                            loss, pg_loss, kl = fused_loss_computation(new_logprobs, ref_logprobs, mb_advantage, kl_coeff)
                             new_logprobs = new_logprobs.sum(1)
 
                             # KG: We should add kl directly to the loss
