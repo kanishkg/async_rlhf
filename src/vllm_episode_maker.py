@@ -49,7 +49,7 @@ def vllm_generate(
             llmp.load_weights(model_named_parameters)
             print(f"load weights took: {time.time() - vllm_start_time:.2f} seconds")
 
-        outputs = llm.generate(prompt_token_ids=g_queries_list, sampling_params=sampling_params, use_tqdm=False)
+        outputs = llm.generate(prompt_token_ids=g_queries_list, sampling_params=sampling_params, use_tqdm=True)
         print(
             f"🏃🏃🏃 load and gen of {len(g_queries_list)} prompts took: {time.time() - vllm_start_time:.2f} seconds"
         )
