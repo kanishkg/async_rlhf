@@ -22,6 +22,7 @@ from src.rloo_trainer import MyRLOOTrainer as RLOOTrainer
 from src.rloo_trainer_vllm import RLOOTrainer as VLLMRLOOTrainer
 from src.utils import TRLParser, WandbLogModelConfig
 
+torch.set_float32_matmul_precision('high')
 
 @dataclass
 class ScriptArguments:
