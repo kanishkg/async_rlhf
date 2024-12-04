@@ -7,6 +7,7 @@ from multiprocessing import Manager
 import threading
 import requests
 import queue
+from multiprocessing import Process, Queue
 import gc
 
 import numpy as np
@@ -276,9 +277,9 @@ class RLOOTrainer(Trainer):
             vllm_device = f"cuda:{accelerator.num_processes}"
             print(f"🔥🔥🔥 vllm device: {vllm_device}")
 
-            response_ids_Q = queue.Queue(maxsize=1)
-            param_Q = queue.Queue(maxsize=1)
-            prompt_Q = queue.Queue(maxsize=1)
+            response_ids_Q = Queue(maxsize=1)
+            param_Q = Queue(maxsize=1)
+            prompt_Q = Queue(maxsize=1)
 
             # thread = threading.Thread(
             #     target=vllm_generate,
@@ -294,6 +295,23 @@ class RLOOTrainer(Trainer):
             #     ),
             # )
             # thread.start()
+                def vllm_process_function():
+            try:
+                vllm_generate(
+                    args.sft_model_path,
+                    self.sampling_params,
+                    vllm_device,
+                    "bfloat16",
+                    0.95,
+                    param_Q,
+                    prompt_Q,
+                    response_ids_Q,
+                )
+            except Exception as e:
+                print(f"Exception in vllm_generate process: {e}")
+
+            process = Process(target=vllm_process_function)
+            process.start()
 
         accelerator.wait_for_everyone()
 
@@ -336,12 +354,12 @@ class RLOOTrainer(Trainer):
                     
                     print(f"🔥🔥🔥 Sending requests to vllm {len(g_queries_list)}")
                     prompt_Q.put(g_queries_list)
-                    # g_response_ids = response_ids_Q.get()
                     # dummy g_response_ids for debugging
-                    output_token_ids = [[[5 for _ in range(2000)] for _ in range(args.rloo_k)] for _ in range(len(g_queries_list))]
+                    # output_token_ids = [[[5 for _ in range(2000)] for _ in range(args.rloo_k)] for _ in range(len(g_queries_list))]
                     
 
-                    # output_token_ids = [[list(output.token_ids) for output in response.outputs] for response in g_response_ids]
+                    g_response_ids = response_ids_Q.get()
+                    output_token_ids = [[list(output.token_ids) for output in response.outputs] for response in g_response_ids]
                     # flatten the list
                     output_token_ids = [item for sublist in output_token_ids for item in sublist]
                     tokenizer.pad_token_id = tokenizer.eos_token_id
