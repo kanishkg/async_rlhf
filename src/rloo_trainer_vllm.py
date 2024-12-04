@@ -344,12 +344,14 @@ class RLOOTrainer(Trainer):
                     start_time = time.time()
                     # param_Q.put(unwrapped_model.named_parameters())
                     model_named_parameters = accelerator._get_named_parameters(model)
+                    new_model_named_parameters = {}
                     for key, value in model_named_parameters.items():
                         # remove _orig_mod prefix from the key
                         new_key = key.replace("_orig_mod.", "")
-                        model_named_parameters[new_key] = model_named_parameters.pop(key)
+                        new_model_named_parameters[new_key] = model_named_parameters.pop(key)
+                    del model_named_parameters
                     
-                    print(model_named_parameters.keys())
+                    print(new_model_named_parameters.keys())
                     # param_Q.put(model_named_parameters)
                     g_queries_list = [
                         [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
@@ -357,7 +359,7 @@ class RLOOTrainer(Trainer):
                     ] 
 
                     print(f"🔥🔥🔥 Sending requests to vllm {len(g_queries_list)}")
-                    param_prompt_Q.put((model_named_parameters.items(), g_queries_list))
+                    param_prompt_Q.put((new_model_named_parameters.items(), g_queries_list))
                     
                     # prompt_Q.put(g_queries_list)
                     # dummy g_response_ids for debugging
