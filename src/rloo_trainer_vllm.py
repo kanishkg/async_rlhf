@@ -344,6 +344,11 @@ class RLOOTrainer(Trainer):
                     start_time = time.time()
                     # param_Q.put(unwrapped_model.named_parameters())
                     model_named_parameters = accelerator._get_named_parameters(model)
+                    for key, value in model_named_parameters.items():
+                        # remove _orig_mod prefix from the key
+                        new_key = key.replace("_orig_mod.", "")
+                        model_named_parameters[new_key] = model_named_parameters.pop(key)
+                    
                     print(model_named_parameters.keys())
                     # param_Q.put(model_named_parameters)
                     g_queries_list = [
