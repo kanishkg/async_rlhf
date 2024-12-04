@@ -396,6 +396,9 @@ class RLOOTrainer(Trainer):
                     del postprocessed_query_response
                         
                     print(f"ref {accelerator.local_process_index}, i = {i}, {queries.shape[0]}, on device: {device}")
+                    print(f"Process {accelerator.local_process_index}: ref_policy device: {next(ref_policy.parameters()).device}")
+                    print(f"Process {accelerator.local_process_index}: query_response device: {query_response.device}")
+
                     start_time = time.time()
                     with torch.no_grad():
                         # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
