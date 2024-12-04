@@ -23,6 +23,7 @@ from src.rloo_trainer_vllm import RLOOTrainer as VLLMRLOOTrainer
 from src.utils import TRLParser, WandbLogModelConfig
 
 torch.set_float32_matmul_precision('high')
+torch._dynamo.config.accumulated_cache_size_limit = 2**7
 
 @dataclass
 class ScriptArguments:
