@@ -393,7 +393,7 @@ class RLOOTrainer(Trainer):
                             score.append(s)
                     del postprocessed_query_response
                         
-                    print(f"ref")
+                    print(f"ref {accelerator.local_process_index}, i = {i}, {queries.shape[0]}")
                     start_time = time.time()
                     with torch.no_grad():
                         # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
@@ -403,7 +403,8 @@ class RLOOTrainer(Trainer):
                         ref_logits /= args.temperature + 1e-7
                         ref_all_logprob = F.log_softmax(ref_logits, dim=-1)
                         ref_logprob = torch.gather(ref_all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
-                    print(f"ref time = {time.time()-start_time}")
+                    print(f"ref {accelerator.local_process_index}, i = {i}, {queries.shape[0]} time = {time.time()-start_time}")
+
                     del ref_output, ref_logits, ref_all_logprob
                     gc.collect()
                     torch.cuda.empty_cache()
@@ -465,7 +466,7 @@ class RLOOTrainer(Trainer):
 
 
 
-            print(f"===training policy===")
+            print(f"===training policy start===")
             start_time = time.time()
             kl_coeff = torch.tensor(args.kl_coef, device=device)
  
