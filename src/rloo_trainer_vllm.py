@@ -280,20 +280,20 @@ class RLOOTrainer(Trainer):
             param_Q = queue.Queue(maxsize=1)
             prompt_Q = queue.Queue(maxsize=1)
 
-            thread = threading.Thread(
-                target=vllm_generate,
-                args=(
-                    args.sft_model_path,
-                    self.sampling_params,
-                    vllm_device,
-                    "bfloat16",
-                    0.95,
-                    param_Q,
-                    prompt_Q,
-                    response_ids_Q,
-                ),
-            )
-            thread.start()
+            # thread = threading.Thread(
+            #     target=vllm_generate,
+            #     args=(
+            #         args.sft_model_path,
+            #         self.sampling_params,
+            #         vllm_device,
+            #         "bfloat16",
+            #         0.95,
+            #         param_Q,
+            #         prompt_Q,
+            #         response_ids_Q,
+            #     ),
+            # )
+            # thread.start()
 
         accelerator.wait_for_everyone()
 
@@ -336,9 +336,12 @@ class RLOOTrainer(Trainer):
                     
                     print(f"🔥🔥🔥 Sending requests to vllm {len(g_queries_list)}")
                     prompt_Q.put(g_queries_list)
-                    g_response_ids = response_ids_Q.get()
+                    # g_response_ids = response_ids_Q.get()
+                    # dummy g_response_ids for debugging
+                    output_token_ids = [[[5 for _ in range(2000)] for _ in range(args.rloo_k)] for _ in range(queries.shape[0])]
+                    
 
-                    output_token_ids = [[list(output.token_ids) for output in response.outputs] for response in g_response_ids]
+                    # output_token_ids = [[list(output.token_ids) for output in response.outputs] for response in g_response_ids]
                     # flatten the list
                     output_token_ids = [item for sublist in output_token_ids for item in sublist]
                     tokenizer.pad_token_id = tokenizer.eos_token_id
