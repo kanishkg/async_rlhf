@@ -295,20 +295,20 @@ class RLOOTrainer(Trainer):
             #     ),
             # )
             # thread.start()
-                def vllm_process_function():
-            try:
-                vllm_generate(
-                    args.sft_model_path,
-                    self.sampling_params,
-                    vllm_device,
-                    "bfloat16",
-                    0.95,
-                    param_Q,
-                    prompt_Q,
-                    response_ids_Q,
-                )
-            except Exception as e:
-                print(f"Exception in vllm_generate process: {e}")
+            def vllm_process_function():
+                try:
+                    vllm_generate(
+                        args.sft_model_path,
+                        self.sampling_params,
+                        vllm_device,
+                        "bfloat16",
+                        0.95,
+                        param_Q,
+                        prompt_Q,
+                        response_ids_Q,
+                    )
+                except Exception as e:
+                    print(f"Exception in vllm_generate process: {e}")
 
             process = Process(target=vllm_process_function)
             process.start()
@@ -345,8 +345,8 @@ class RLOOTrainer(Trainer):
                     print("🔥🔥🔥 Updating weights")
                     start_time = time.time()
                     # param_Q.put(unwrapped_model.named_parameters())
-                    # model_named_parameters = accelerator._get_named_parameters(model)
-                    # param_Q.put(model_named_parameters)
+                    model_named_parameters = accelerator._get_named_parameters(model)
+                    param_Q.put(model_named_parameters)
                     g_queries_list = [
                         [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
                         for item in g_queries_list
