@@ -461,46 +461,30 @@ class RLOOTrainer(Trainer):
                         mb_responses = responses[micro_batch_inds]
                         mb_query_responses = query_responses[micro_batch_inds]
 
-                            # Compute ref and new logprobs in parallel using torch.vmap
+                    
                         with torch.no_grad():
                             ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
-                        
-                        #     ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
-                        def compute_logprobs(model_output, responses, padding_mask):
-                            logits = model_output.logits[:, context_length - 1 : -1] / (args.temperature + 1e-7)
-                            all_logprobs = F.log_softmax(logits, dim=-1)
-                            logprobs = torch.gather(all_logprobs, 2, responses.unsqueeze(-1)).squeeze(-1)
-                            return torch.masked_fill(logprobs, padding_mask, INVALID_LOGPROB)
+                            ref_logits = ref_output.logits[:, context_length - 1 : -1]
+                            ref_logits /= args.temperature + 1e-7
+                            ref_all_logprobs = F.log_softmax(ref_logits, dim=-1)
+                            ref_logprobs = torch.gather(ref_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
+                            ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
 
                         with accelerator.accumulate(model):
                             output = forward(model, mb_query_responses, tokenizer.pad_token_id)
-                            ref_logprobs, new_logprobs = torch.vmap(compute_logprobs)(
-                                (ref_output, output),
-                                (mb_responses, mb_responses),
-                                (padding_mask[micro_batch_inds], padding_mask[micro_batch_inds])
+                            logits = output.logits[:, context_length - 1 : -1]
+                            logits /= args.temperature + 1e-7
+                            new_all_logprobs = F.log_softmax(logits, dim=-1)
+                            new_logprobs = torch.gather(new_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
+                            new_logprobs = torch.masked_fill(
+                                new_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB
                             )
-                            loss, pg_loss, kl = fused_loss_computation(new_logprobs, ref_logprobs, mb_advantage, args.kl_coef)
-                        # with torch.no_grad():
-                        #     ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
-                        #     ref_logits = ref_output.logits[:, context_length - 1 : -1]
-                        #     ref_logits /= args.temperature + 1e-7
-                        #     ref_all_logprobs = F.log_softmax(ref_logits, dim=-1)
-                        #     ref_logprobs = torch.gather(ref_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
-                        #     ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
-
-                        # with accelerator.accumulate(model):
-                        #     output = forward(model, mb_query_responses, tokenizer.pad_token_id)
-                        #     logits = output.logits[:, context_length - 1 : -1]
-                        #     logits /= args.temperature + 1e-7
-                        #     new_all_logprobs = F.log_softmax(logits, dim=-1)
-                        #     new_logprobs = torch.gather(new_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
-                        #     new_logprobs = torch.masked_fill(
-                        #         new_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB
-                        #     )
                             # KG: compute approx kl
                             # kl = 0.5 * (new_logprobs - ref_logprobs)**2
                             # kl = kl.sum(1)
 
+
+                            loss, pg_loss, kl = fused_loss_computation(new_logprobs, ref_logprobs, mb_advantage, args.kl_coef)
                             new_logprobs = new_logprobs.sum(1)
 
                             # KG: We should add kl directly to the loss
