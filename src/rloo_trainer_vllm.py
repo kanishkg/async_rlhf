@@ -465,6 +465,8 @@ class RLOOTrainer(Trainer):
                     
                         print(f"ref")
                         with torch.no_grad():
+                            # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
+                            # NOTE (kg): we should change it to use model() instead of forward()
                             ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
                             ref_logits = ref_output.logits[:, context_length - 1 : -1]
                             ref_logits /= args.temperature + 1e-7
@@ -474,6 +476,8 @@ class RLOOTrainer(Trainer):
 
                         print(f"policy")
                         with accelerator.accumulate(model):
+                            # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
+                            # NOTE (kg): we should change it to use model() instead of forward()
                             output = forward(model, mb_query_responses, tokenizer.pad_token_id)
                             logits = output.logits[:, context_length - 1 : -1]
                             logits /= args.temperature + 1e-7

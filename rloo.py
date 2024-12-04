@@ -25,6 +25,7 @@ from src.utils import TRLParser, WandbLogModelConfig
 torch.set_float32_matmul_precision('high')
 torch._dynamo.config.accumulated_cache_size_limit = 2**7
 torch._dynamo.config.cache_size_limit = 2**7
+torch._dynamo.config.capture_dynamic_output_shape_ops = True
 
 @dataclass
 class ScriptArguments:
@@ -110,7 +111,7 @@ if __name__ == "__main__":
                                                   torch_dtype=torch.bfloat16,
                                                   trust_remote_code=True,
                                                   attn_implementation="flash_attention_2")
-    policy = torch.compile(policy)
+    # policy = torch.compile(policy)
     policy.gradient_checkpointing_enable()
 
     ref_policy = torch.compile(ref_policy)
