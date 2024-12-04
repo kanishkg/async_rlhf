@@ -534,6 +534,7 @@ class RLOOTrainer(Trainer):
                                 new_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB
                             )
                             # KG: compute approx kl
+                            print(f"{new_logprobs.shape=}, {mb_ref_logprobs.shape=}")
                             kl = 0.5 * (new_logprobs - mb_ref_logprobs)**2
                             kl = kl.sum(1)
 
