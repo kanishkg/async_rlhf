@@ -403,7 +403,6 @@ class RLOOTrainer(Trainer):
                         ref_logits /= args.temperature + 1e-7
                         ref_all_logprob = F.log_softmax(ref_logits, dim=-1)
                         ref_logprob = torch.gather(ref_all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
-                        ref_logprob = torch.masked_fill(ref_logprob, padding_mask, INVALID_LOGPROB)
                     print(f"ref time = {time.time()-start_time}")
                     del ref_output, ref_logits, ref_all_logprob
                     torch.cuda.empty_cache()
@@ -433,7 +432,7 @@ class RLOOTrainer(Trainer):
                 response_idxs = torch.arange(responses.shape[1], device=responses.device).repeat(responses.shape[0], 1)
                 padding_mask = response_idxs > sequence_lengths.unsqueeze(1)
                 # logprobs = torch.masked_fill(logprobs, padding_mask, INVALID_LOGPROB)
-                # ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask, INVALID_LOGPROB)
+                ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask, INVALID_LOGPROB)
 
                 
                 # 4. compute rewards
