@@ -606,6 +606,7 @@ class RLOOTrainer(Trainer):
 
             del kl, mean_kl, mean_entropy, scores, entropy
             torch.cuda.empty_cache()
+            accelerator.wait_for_everyone()
 
             # KG: Skip eval loop for now
             # if args.num_sample_generations > 0 and (update - 1) % self.sample_generations_freq == 0:
