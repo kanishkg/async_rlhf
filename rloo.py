@@ -107,6 +107,10 @@ if __name__ == "__main__":
                                                   torch_dtype=torch.bfloat16,
                                                   trust_remote_code=True,
                                                   attn_implementation="flash_attention_2")
+    policy = torch.compile(policy)
+    policy.gradient_checkpointing_enable()
+
+    ref_policy = torch.compile(ref_policy)
     ################
     # Dataset
     ################

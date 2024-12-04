@@ -241,6 +241,11 @@ class RLOOTrainer(Trainer):
         global_step = 0
         start_time = time.time()
         stats_shape = (args.num_ppo_epochs, args.num_mini_batches, args.gradient_accumulation_steps)
+        # Pre-allocate tensors
+        # advantage_device = torch.zeros(args.per_device_train_batch_size, device=device)
+        # logprob_shape = (args.per_device_train_batch_size, max_sequence_length)
+        # new_logprobs = torch.zeros(logprob_shape, device=device)
+        # ref_logprobs = torch.zeros(logprob_shape, device=device)
         approxkl_stats = torch.zeros(stats_shape, device=device)
         pg_loss_stats = torch.zeros(stats_shape, device=device)
         vf_loss_stats = torch.zeros(stats_shape, device=device)
