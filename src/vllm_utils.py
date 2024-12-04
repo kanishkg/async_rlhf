@@ -145,8 +145,11 @@ def _init_executor(self) -> None:
 
     print("🔥🔥🔥 GPUExecutor only supports single GPU.")
     self.driver_worker = self._create_worker(local_rank=self.device_config.device.index)
+    print("created worker")
     self.driver_worker.init_device()
+    print("initialized device")
     self.driver_worker.load_model()
+    print("loaded model")
 
 
 # monkey patch the function
