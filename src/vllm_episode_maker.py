@@ -21,7 +21,7 @@ def vllm_generate(
     import torch
 
     # Set CUDA_VISIBLE_DEVICES to the desired GPU(s)
-    os.environ['CUDA_VISIBLE_DEVICES'] = 2
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(2)
 
     # Set the device within the subprocess
     torch.cuda.set_device(0)  # Since CUDA_VISIBLE_DEVICES maps the specified GPU to device 0
