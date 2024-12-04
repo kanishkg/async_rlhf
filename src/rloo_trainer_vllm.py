@@ -393,8 +393,20 @@ class RLOOTrainer(Trainer):
                             score.append(s)
                     del postprocessed_query_response
                         
-
+                    print(f"ref")
+                    start_time = time.time()
+                    with torch.no_grad():
+                        # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
+                        # NOTE (kg): we should change it to use model() instead of forward()
+                        ref_output = forward(ref_policy, query_response, tokenizer.pad_token_id)
+                        ref_logits = ref_output.logits[:, context_length - 1 : -1]
+                        ref_logits /= args.temperature + 1e-7
+                        ref_all_logprob = F.log_softmax(ref_logits, dim=-1)
+                        ref_logprob = torch.gather(ref_all_logprob, 2, responses.unsqueeze(-1)).squeeze(-1)
+                        ref_logprob = torch.masked_fill(ref_logprob, padding_mask, INVALID_LOGPROB)
+                    print(f"ref time = {time.time()-start_time}")
                     responses.append(response)
+                    ref_logprobs.append(ref_logprob)
                     postprocessed_responses.append(postprocessed_response)
                     sequence_lengths.append(sequence_length)
                     scores.append(torch.tensor(score))
@@ -403,6 +415,7 @@ class RLOOTrainer(Trainer):
                 postprocessed_responses = torch.cat(postprocessed_responses, 0)
                 sequence_lengths = torch.cat(sequence_lengths, 0)
                 scores = torch.cat(scores, 0)
+                ref_logprobs = torch.cat(ref_logprobs, 0)
                 torch.cuda.empty_cache()
 
                 # Response Processing 3. filter response. Ensure that the sample contains truncate_token_id
@@ -419,6 +432,7 @@ class RLOOTrainer(Trainer):
                 # logprobs = torch.masked_fill(logprobs, padding_mask, INVALID_LOGPROB)
                 # ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask, INVALID_LOGPROB)
 
+                
                 # 4. compute rewards
                 # kl = logprobs - ref_logprobs
                 # non_score_reward = (-args.kl_coef * kl).sum(1)
@@ -446,18 +460,7 @@ class RLOOTrainer(Trainer):
            
 
 
-            print(f"ref")
-            start_time = time.time()
-            with torch.no_grad():
-                # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
-                # NOTE (kg): we should change it to use model() instead of forward()
-                ref_output = forward(ref_policy, query_responses, tokenizer.pad_token_id)
-                ref_logits = ref_output.logits[:, context_length - 1 : -1]
-                ref_logits /= args.temperature + 1e-7
-                ref_all_logprobs = F.log_softmax(ref_logits, dim=-1)
-                ref_logprobs = torch.gather(ref_all_logprobs, 2, responses.unsqueeze(-1)).squeeze(-1)
-                ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask, INVALID_LOGPROB)
-            print(f"ref time = {time.time()-start_time}")
+
 
             print(f"===training policy===")
             start_time = time.time()
