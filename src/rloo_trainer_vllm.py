@@ -443,13 +443,11 @@ class RLOOTrainer(Trainer):
                 gc.collect()
                 torch.cuda.empty_cache()
 
-            print(f"===training policy===")
-            start_time = time.time()
-            kl_coeff = torch.tensor(args.kl_coef, device=device)
-            
+           
 
 
             print(f"ref")
+            start_time = time.time()
             with torch.no_grad():
                 # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
                 # NOTE (kg): we should change it to use model() instead of forward()
@@ -459,7 +457,12 @@ class RLOOTrainer(Trainer):
                 ref_all_logprobs = F.log_softmax(ref_logits, dim=-1)
                 ref_logprobs = torch.gather(ref_all_logprobs, 2, responses.unsqueeze(-1)).squeeze(-1)
                 ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask, INVALID_LOGPROB)
+            print(f"ref time = {time.time()-start_time}")
 
+            print(f"===training policy===")
+            start_time = time.time()
+            kl_coeff = torch.tensor(args.kl_coef, device=device)
+ 
             # Do multiple epochs of PPO training, with a fresh random shuffle in each epoch
             for ppo_epoch_idx in range(args.num_ppo_epochs):
                 b_inds = np.random.permutation(args.local_batch_size)
