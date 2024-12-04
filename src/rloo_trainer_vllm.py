@@ -12,10 +12,10 @@ import gc
 import numpy as np
 import tqdm
 import pandas as pd
+import wandb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from accelerate import Accelerator
 from accelerate.state import AcceleratorState
 from accelerate.utils import broadcast, gather_object, broadcast_object_list
@@ -43,13 +43,6 @@ from trl.trainer.utils import (
     truncate_response,
 )
 from vllm import SamplingParams, LLM
-from sglang.utils import (
-    execute_shell_command,
-    wait_for_server,
-    terminate_process,
-    print_highlight,
-)
-
 
 from src.utils import prepare_deepspeed
 from src.vllm_utils import vllm_single_gpu_patch
@@ -249,15 +242,9 @@ class RLOOTrainer(Trainer):
         start_time = time.time()
         stats_shape = (args.num_ppo_epochs, args.num_mini_batches, args.gradient_accumulation_steps)
         approxkl_stats = torch.zeros(stats_shape, device=device)
-        pg_clipfrac_stats = torch.zeros(stats_shape, device=device)
         pg_loss_stats = torch.zeros(stats_shape, device=device)
         vf_loss_stats = torch.zeros(stats_shape, device=device)
-        vf_clipfrac_stats = torch.zeros(stats_shape, device=device)
         entropy_stats = torch.zeros(stats_shape, device=device)
-        ratio_stats = torch.zeros(stats_shape, device=device)
-        g_responses = torch.zeros(
-            (args.batch_size * args.rloo_k, args.response_length), device=device, dtype=torch.long
-        )
         self.state.max_steps = args.total_episodes
         self.state.num_train_epochs = args.total_episodes / self.train_dataset_len
         self.state.is_local_process_zero = self.is_local_process_zero()
@@ -357,7 +344,6 @@ class RLOOTrainer(Trainer):
                 broadcast(vllm_responses, 0)
                 accelerator.wait_for_everyone()
 
-                # TODO: Make sure rloo_k is matched for queries and responses
                 local_vllm_responses = vllm_responses[
                     accelerator.local_process_index * repeated_queries.shape[0] : (accelerator.local_process_index + 1)
                     * repeated_queries.shape[0]
@@ -455,47 +441,41 @@ class RLOOTrainer(Trainer):
                     mini_batch_end = mini_batch_start + args.local_mini_batch_size
                     mini_batch_inds = b_inds[mini_batch_start:mini_batch_end]
                     gradient_accumulation_idx = 0
+
                     for micro_batch_start in tqdm.tqdm(range(0, args.local_mini_batch_size, args.per_device_train_batch_size)):
                         micro_batch_end = micro_batch_start + args.per_device_train_batch_size
                         micro_batch_inds = mini_batch_inds[micro_batch_start:micro_batch_end]
                         mb_advantage = advantages[micro_batch_inds]
                         mb_responses = responses[micro_batch_inds]
                         mb_query_responses = query_responses[micro_batch_inds]
-
-                        with torch.no_grad():
-                            ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
-                            ref_logits = ref_output.logits[:, context_length - 1 : -1]
-                            ref_logits /= args.temperature + 1e-7
-                            ref_all_logprobs = F.log_softmax(ref_logits, dim=-1)
-                            ref_logprobs = torch.gather(ref_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
-                            ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
-
+                        stream1 = torch.cuda.Stream()
+                        stream2 = torch.cuda.Stream()
                         with accelerator.accumulate(model):
-                            # mb_logprobs = logprobs[micro_batch_inds]
+                            with torch.no_grad():
+                                with torch.cuda.stream(stream1):
+                                    ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
+                                    ref_logits = ref_output.logits[:, context_length - 1 : -1]
+                                    ref_logits /= args.temperature + 1e-7
+                                    ref_all_logprobs = F.log_softmax(ref_logits, dim=-1)
+                                    ref_logprobs = torch.gather(ref_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
+                                    ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
 
-                            output = forward(model, mb_query_responses, tokenizer.pad_token_id)
-                            logits = output.logits[:, context_length - 1 : -1]
-                            logits /= args.temperature + 1e-7
-                            new_all_logprobs = F.log_softmax(logits, dim=-1)
-                            new_logprobs = torch.gather(new_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
-                            new_logprobs = torch.masked_fill(
-                                new_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB
-                            )
 
+                            with torch.cuda.stream(stream2):
+                                output = forward(model, mb_query_responses, tokenizer.pad_token_id)
+                                logits = output.logits[:, context_length - 1 : -1]
+                                logits /= args.temperature + 1e-7
+                                new_all_logprobs = F.log_softmax(logits, dim=-1)
+                                new_logprobs = torch.gather(new_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
+                                new_logprobs = torch.masked_fill(
+                                    new_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB
+                                )
+                            torch.cuda.synchronize()
                             # KG: compute approx kl
                             kl = 0.5 * (new_logprobs - ref_logprobs)**2
                             kl = kl.sum(1)
 
-                            # new_ratio = (new_logprobs - mb_logprobs).exp()
                             new_logprobs = new_logprobs.sum(1)
-                            # mb_logprobs = mb_logprobs.sum(1)
-                            # logprobs_diff = new_logprobs - mb_logprobs
-                            # ratio = torch.exp(logprobs_diff)
-                            # pg_losses = -mb_advantage * ratio
-                            # pg_losses2 = -mb_advantage * torch.clamp(ratio, 1.0 - args.cliprange, 1.0 + args.cliprange)
-                            # pg_loss_max = torch.max(pg_losses, pg_losses2)
-                            # pg_loss = pg_loss_max.mean()
-                            # pg_clipfrac = (pg_losses2 > pg_losses).float().mean()
 
                             # KG: We should add kl directly to the loss
                             pg_loss = -mb_advantage * new_logprobs
@@ -506,17 +486,12 @@ class RLOOTrainer(Trainer):
                             optimizer.step()
                             optimizer.zero_grad()
                             with torch.no_grad():
-                                # pg_clipfrac = pg_clipfrac
                                 prob_dist = torch.nn.functional.softmax(logits, dim=-1)
                                 entropy = torch.logsumexp(logits, dim=-1) - torch.sum(prob_dist * logits, dim=-1)
                                 approxkl = kl.mean()
                                 approxkl_stats[ppo_epoch_idx, minibatch_idx, gradient_accumulation_idx] = approxkl
-                                # pg_clipfrac_stats[ppo_epoch_idx, minibatch_idx, gradient_accumulation_idx] = (
-                                #     pg_clipfrac
-                                # )
                                 pg_loss_stats[ppo_epoch_idx, minibatch_idx, gradient_accumulation_idx] = pg_loss
                                 entropy_stats[ppo_epoch_idx, minibatch_idx, gradient_accumulation_idx] = entropy.mean()
-                                # ratio_stats[ppo_epoch_idx, minibatch_idx, gradient_accumulation_idx] = new_ratio.mean()
                         gradient_accumulation_idx += 1
                     minibatch_idx += 1
                     # del everything and empty cache
@@ -569,7 +544,8 @@ class RLOOTrainer(Trainer):
             # KG: Skip eval loop for now
             # if args.num_sample_generations > 0 and (update - 1) % self.sample_generations_freq == 0:
             #     self.generate_completions(sampling=True)
-
+            
+            wandb.log({"completions": wandb.Table(dataframe=df)})
             self.state.global_step = global_step
             self.control = self.callback_handler.on_step_end(args, self.state, self.control)
 
