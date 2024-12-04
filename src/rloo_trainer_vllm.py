@@ -463,6 +463,7 @@ class RLOOTrainer(Trainer):
                         mb_query_responses = query_responses[micro_batch_inds]
 
                     
+                        print(f"ref")
                         with torch.no_grad():
                             ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
                             ref_logits = ref_output.logits[:, context_length - 1 : -1]
@@ -471,6 +472,7 @@ class RLOOTrainer(Trainer):
                             ref_logprobs = torch.gather(ref_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
                             ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
 
+                        print(f"policy")
                         with accelerator.accumulate(model):
                             output = forward(model, mb_query_responses, tokenizer.pad_token_id)
                             logits = output.logits[:, context_length - 1 : -1]
