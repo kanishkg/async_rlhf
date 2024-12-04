@@ -126,6 +126,7 @@ def custom_initialize_model_parallel(
 
 
 def init_world_group(ranks: List[int], local_rank: int, backend: str) -> GroupCoordinator:
+    print("init_world_group")
     print("🔥🔥🔥 SingleGPULLM logic: only use a single GPU")
     return GroupCoordinator(
         group_ranks=[[0]],  # SingleGPULLM logic: only use a single GPU
