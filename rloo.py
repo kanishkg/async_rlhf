@@ -112,7 +112,7 @@ if __name__ == "__main__":
                                                   trust_remote_code=True,
                                                   attn_implementation="flash_attention_2")
     # policy = torch.compile(policy)
-    # policy.gradient_checkpointing_enable()
+    policy.gradient_checkpointing_enable()
 
     # ref_policy = torch.compile(ref_policy)
     ################

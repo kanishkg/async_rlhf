@@ -487,18 +487,18 @@ class RLOOTrainer(Trainer):
                                 new_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB
                             )
                             # KG: compute approx kl
-                            # kl = 0.5 * (new_logprobs - ref_logprobs)**2
-                            # kl = kl.sum(1)
+                            kl = 0.5 * (new_logprobs - ref_logprobs)**2
+                            kl = kl.sum(1)
 
 
                             print("policy loss")
-                            loss, pg_loss, kl = fused_loss_computation(new_logprobs, ref_logprobs, mb_advantage, kl_coeff)
+                            # loss, pg_loss, kl = fused_loss_computation(new_logprobs, ref_logprobs, mb_advantage, kl_coeff)
                             new_logprobs = new_logprobs.sum(1)
 
                             # KG: We should add kl directly to the loss
-                            # pg_loss = -mb_advantage * new_logprobs
-                            # pg_loss = pg_loss.mean() 
-                            # loss = pg_loss + args.kl_coef * kl.mean()
+                            pg_loss = -mb_advantage * new_logprobs
+                            pg_loss = pg_loss.mean() 
+                            loss = pg_loss + kl_coeff * kl.mean()
 
                             print("backward")
                             accelerator.backward(loss)
