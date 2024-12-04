@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Optional
 
+import torch.multiprocessing as mp
 from datasets import load_dataset
 from transformers import (
     AutoModelForCausalLM,
@@ -62,6 +63,7 @@ def prepare_dataset(dataset, tokenizer):
 
 
 if __name__ == "__main__":
+    mp.set_start_method('spawn', force=True)
     parser = TRLParser((ScriptArguments, RLOOConfig, ModelConfig))
     args, config, model_config = parser.parse_args_and_config()
 

@@ -10,10 +10,6 @@ import queue
 from multiprocessing import Process, Queue
 import gc
 
-import multiprocessing as mp
-
-mp.set_start_method('spawn', force=True)
-
 import numpy as np
 import tqdm
 import pandas as pd
