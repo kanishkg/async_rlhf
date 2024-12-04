@@ -405,6 +405,7 @@ class RLOOTrainer(Trainer):
                         ref_logprob = torch.gather(ref_all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
                     print(f"ref time = {time.time()-start_time}")
                     del ref_output, ref_logits, ref_all_logprob
+                    gc.collect()
                     torch.cuda.empty_cache()
 
                     responses.append(response)
