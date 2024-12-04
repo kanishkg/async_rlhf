@@ -38,13 +38,13 @@ def vllm_generate(
     while True:
         i += 1
         model_named_parameters, g_queries_list = param_prompt_Q.get()
-        # print("got queries==================")
+        print("got queries==================")
         if model_named_parameters is None and g_queries_list is None:
             print("model params and queries are None, exiting")
             break
 
         vllm_start_time = time.time()
-        if i > 1:
+        if i > 0:
             # print("🔥🔥🔥 Loading weights using shared memory;" "we expect the generations to be completely different")
             llmp.load_weights(model_named_parameters)
             print(f"load weights took: {time.time() - vllm_start_time:.2f} seconds")
