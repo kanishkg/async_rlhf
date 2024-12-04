@@ -278,23 +278,21 @@ class RLOOTrainer(Trainer):
             print(f"🔥🔥🔥 vllm device: {vllm_device}")
 
             response_ids_Q = Queue(maxsize=1)
-            param_Q = Queue(maxsize=1)
-            prompt_Q = Queue(maxsize=1)
+            param_prompt_Q = Queue(maxsize=1)
 
-            # thread = threading.Thread(
-            #     target=vllm_generate,
-            #     args=(
-            #         args.sft_model_path,
-            #         self.sampling_params,
-            #         vllm_device,
-            #         "bfloat16",
-            #         0.95,
-            #         param_Q,
-            #         prompt_Q,
-            #         response_ids_Q,
-            #     ),
-            # )
-            # thread.start()
+            thread = threading.Thread(
+                target=vllm_generate,
+                args=(
+                    args.sft_model_path,
+                    self.sampling_params,
+                    vllm_device,
+                    "bfloat16",
+                    0.95,
+                    param_prompt_Q,
+                    response_ids_Q,
+                ),
+            )
+            thread.start()
             # def vllm_process_function():
             #     try:
             #         vllm_generate(
@@ -310,8 +308,8 @@ class RLOOTrainer(Trainer):
             #     except Exception as e:
             #         print(f"Exception in vllm_generate process: {e}")
 
-            process = Process(target=vllm_generate, args=(args.sft_model_path, self.sampling_params, vllm_device, "bfloat16", 0.95, param_Q, prompt_Q, response_ids_Q))
-            process.start()
+            # process = Process(target=vllm_generate, args=(args.sft_model_path, self.sampling_params, vllm_device, "bfloat16", 0.95, param_Q, prompt_Q, response_ids_Q))
+            # process.start()
 
         accelerator.wait_for_everyone()
 
@@ -346,14 +344,16 @@ class RLOOTrainer(Trainer):
                     start_time = time.time()
                     # param_Q.put(unwrapped_model.named_parameters())
                     model_named_parameters = accelerator._get_named_parameters(model)
-                    param_Q.put(model_named_parameters)
+                    # param_Q.put(model_named_parameters)
                     g_queries_list = [
                         [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
                         for item in g_queries_list
                     ] 
-                    
+
                     print(f"🔥🔥🔥 Sending requests to vllm {len(g_queries_list)}")
-                    prompt_Q.put(g_queries_list)
+                    param_prompt_Q.put((model_named_parameters.items(), g_queries_list))
+                    
+                    # prompt_Q.put(g_queries_list)
                     # dummy g_response_ids for debugging
                     # output_token_ids = [[[5 for _ in range(2000)] for _ in range(args.rloo_k)] for _ in range(len(g_queries_list))]
                     
@@ -705,28 +705,3 @@ class RLOOTrainer(Trainer):
 
             if wandb.run is not None:
                 wandb.log({"completions": wandb.Table(dataframe=df)})
-
-if __name__ == "__main__":
-
-    def test_rloo_reward():
-        local_batch_size = 3
-        # fmt: off
-        rlhf_reward = torch.tensor([
-            1, 2, 3, # first rlhf reward for three prompts
-            2, 3, 4, # second rlhf reward for three prompts
-            5, 6, 7, # third rlhf reward for three prompts
-            8, 9, 10, # fourth rlhf reward for three prompts
-        ]).float()
-        # fmt: on
-
-        advantages = torch.zeros_like(rlhf_reward)
-        for i in range(0, len(advantages), local_batch_size):
-            other_response_rlhf_rewards = []
-            for j in range(0, len(advantages), local_batch_size):
-                if i != j:
-                    other_response_rlhf_rewards.append(rlhf_reward[j : j + local_batch_size])
-            advantages[i : i + local_batch_size] = rlhf_reward[i : i + local_batch_size] - torch.stack(
-                other_response_rlhf_rewards
-            ).mean(0)
-        assert (1 - (2 + 5 + 8) / 3 - advantages[0].item()) < 1e-6
-        assert (6 - (3 + 2 + 9) / 3 - advantages[7].item()) < 1e-6
