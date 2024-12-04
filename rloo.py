@@ -82,7 +82,10 @@ if __name__ == "__main__":
     
     accelerator = Accelerator()
     if accelerator.is_main_process:
-        wandb.init(**wandb_init_kwargs)
+        wandb.init(project="rloo",
+                   name="rloo_countdown",
+                   entity="cocolab")
+
 
     ################
     # Model & Tokenizer
