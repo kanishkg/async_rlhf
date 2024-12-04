@@ -402,9 +402,12 @@ class RLOOTrainer(Trainer):
                         ref_logits = ref_output.logits[:, context_length - 1 : -1]
                         ref_logits /= args.temperature + 1e-7
                         ref_all_logprob = F.log_softmax(ref_logits, dim=-1)
-                        ref_logprob = torch.gather(ref_all_logprob, 2, responses.unsqueeze(-1)).squeeze(-1)
+                        ref_logprob = torch.gather(ref_all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
                         ref_logprob = torch.masked_fill(ref_logprob, padding_mask, INVALID_LOGPROB)
                     print(f"ref time = {time.time()-start_time}")
+                    del ref_output, ref_logits, ref_all_logprob
+                    torch.cuda.empty_cache()
+
                     responses.append(response)
                     ref_logprobs.append(ref_logprob)
                     postprocessed_responses.append(postprocessed_response)
