@@ -23,7 +23,6 @@ from src.rloo_trainer import MyRLOOTrainer as RLOOTrainer
 from src.rloo_trainer_vllm import RLOOTrainer as VLLMRLOOTrainer
 from src.utils import TRLParser, WandbLogModelConfig
 
-torch.set_float32_matmul_precision('high')
 torch._dynamo.config.accumulated_cache_size_limit = 2**7
 torch._dynamo.config.cache_size_limit = 2**7
 torch._dynamo.config.capture_dynamic_output_shape_ops = True
