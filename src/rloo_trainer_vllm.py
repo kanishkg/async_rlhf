@@ -61,11 +61,11 @@ INVALID_LOGPROB = 1.0
 # QueueManager.register('get_prompt_Q')
 
 # Combine operations to reduce memory overhead
-@torch.jit.script
-def fused_loss_computation(new_logprobs, ref_logprobs, advantages, kl_coef):
-    kl = 0.5 * (new_logprobs - ref_logprobs).pow(2).sum(1)
-    pg_loss = (-advantages * new_logprobs.sum(1)).mean()
-    return pg_loss + kl_coef * kl.mean(), pg_loss, kl
+# @torch.jit.script
+# def fused_loss_computation(new_logprobs, ref_logprobs, advantages, kl_coef):
+#     kl = 0.5 * (new_logprobs - ref_logprobs).pow(2).sum(1)
+#     pg_loss = (-advantages * new_logprobs.sum(1)).mean()
+#     return pg_loss + kl_coef * kl.mean(), pg_loss, kl
 
 class RLOOTrainer(Trainer):
     def __init__(
