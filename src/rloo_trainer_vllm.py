@@ -608,7 +608,8 @@ class RLOOTrainer(Trainer):
                 metrics["episode"] = global_step
                 self.state.epoch = global_step / self.train_dataset_len  # used by self.log
                 self.log(metrics)
-                wandb.log(metrics)
+                if accelerator.is_main_process:
+                    wandb.log(metrics)
 
             del kl, mean_kl, mean_entropy, scores, entropy
             torch.cuda.empty_cache()
