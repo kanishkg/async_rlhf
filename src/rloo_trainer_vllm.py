@@ -608,6 +608,8 @@ class RLOOTrainer(Trainer):
                 metrics["episode"] = global_step
                 self.state.epoch = global_step / self.train_dataset_len  # used by self.log
                 self.log(metrics)
+                wandb.log(metrics)
+
             del kl, mean_kl, mean_entropy, scores, entropy
             torch.cuda.empty_cache()
 
@@ -615,7 +617,7 @@ class RLOOTrainer(Trainer):
             # if args.num_sample_generations > 0 and (update - 1) % self.sample_generations_freq == 0:
             #     self.generate_completions(sampling=True)
             
-            wandb.log({"completions": wandb.Table(dataframe=df)})
+            # wandb.log({"completions": wandb.Table(dataframe=df)})
             self.state.global_step = global_step
             self.control = self.callback_handler.on_step_end(args, self.state, self.control)
 
