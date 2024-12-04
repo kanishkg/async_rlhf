@@ -17,6 +17,20 @@ def vllm_generate(
         response_ids_Q: object,
     ):
 
+    import os
+    import torch
+
+    # Set CUDA_VISIBLE_DEVICES to the desired GPU(s)
+    os.environ['CUDA_VISIBLE_DEVICES'] = 2
+
+    # Set the device within the subprocess
+    torch.cuda.set_device(0)  # Since CUDA_VISIBLE_DEVICES maps the specified GPU to device 0
+
+    # Verify available devices (for debugging)
+    print(f"vllm process sees {torch.cuda.device_count()} CUDA devices")
+    print(f"Current device: {torch.cuda.current_device()}")
+
+
     print("+++ patching vllm")
     vllm_single_gpu_patch()
     llm = LLM(
@@ -24,7 +38,7 @@ def vllm_generate(
         enforce_eager=True,
         enable_prefix_caching=True,
         tensor_parallel_size=1,
-        device=vllm_device,
+        device="cuda:0",
         dtype=vllm_dtype,
         gpu_memory_utilization=vllm_gpu_memory_utilization,
         max_num_seqs=64,
