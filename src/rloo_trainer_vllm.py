@@ -431,7 +431,7 @@ class RLOOTrainer(Trainer):
                         # NOTE (kg): we should change it to use model() instead of forward()
                         ref_output = forward(ref_policy, query_response, tokenizer.pad_token_id)
                         ref_logits = ref_output.logits[:, context_length - 1 : -1]
-                        ref_logits /= args.temperature + 1e-7
+                        # ref_logits /= args.temperature + 1e-7
                         ref_all_logprob = F.log_softmax(ref_logits, dim=-1)
                         ref_logprob = torch.gather(ref_all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
 
@@ -493,11 +493,6 @@ class RLOOTrainer(Trainer):
                 gc.collect()
                 torch.cuda.empty_cache()
 
-           
-
-
-
-
             print(f"===training policy start===")
             start_time = time.time()
             kl_coef = torch.tensor(args.kl_coef, device=device)
@@ -527,17 +522,16 @@ class RLOOTrainer(Trainer):
                             # NOTE (kg): we should change it to use model() instead of forward()
                             output = forward(model, mb_query_responses, tokenizer.pad_token_id)
                             logits = output.logits[:, context_length - 1 : -1]
-                            logits /= args.temperature + 1e-7
+                            # logits /= args.temperature + 1e-7
                             new_all_logprobs = F.log_softmax(logits, dim=-1)
                             new_logprobs = torch.gather(new_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
                             new_logprobs = torch.masked_fill(
                                 new_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB
                             )
                             # KG: compute approx kl
-                            print(f"{new_logprobs.shape=}, {mb_ref_logprobs.shape=}")
                             kl = 0.5 * (new_logprobs - mb_ref_logprobs)**2
                             kl = kl.sum(1)
-
+                            print(f"{kl=}")
 
                             # loss, pg_loss, kl = fused_loss_computation(new_logprobs, ref_logprobs, mb_advantage, kl_coeff)
                             new_logprobs = new_logprobs.sum(1)
