@@ -429,7 +429,7 @@ class RLOOTrainer(Trainer):
                     with torch.no_grad():
                         # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
                         # NOTE (kg): we should change it to use model() instead of forward()
-                        ref_output = forward(ref_policy, query_response, tokenizer.pad_token_id)
+                        ref_output = forward(model, query_response, tokenizer.pad_token_id)
                         ref_logits = ref_output.logits[:, context_length - 1 : -1]
                         # ref_logits /= args.temperature + 1e-7
                         ref_all_logprob = F.log_softmax(ref_logits, dim=-1)
