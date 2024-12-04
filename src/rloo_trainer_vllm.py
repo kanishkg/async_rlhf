@@ -491,6 +491,7 @@ class RLOOTrainer(Trainer):
                             # kl = kl.sum(1)
 
 
+                            print("policy loss")
                             loss, pg_loss, kl = fused_loss_computation(new_logprobs, ref_logprobs, mb_advantage, kl_coeff)
                             new_logprobs = new_logprobs.sum(1)
 
@@ -499,6 +500,7 @@ class RLOOTrainer(Trainer):
                             # pg_loss = pg_loss.mean() 
                             # loss = pg_loss + args.kl_coef * kl.mean()
 
+                            print("backward")
                             accelerator.backward(loss)
                             optimizer.step()
                             optimizer.zero_grad()
