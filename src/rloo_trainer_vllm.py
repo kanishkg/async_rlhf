@@ -448,29 +448,23 @@ class RLOOTrainer(Trainer):
                         mb_advantage = advantages[micro_batch_inds]
                         mb_responses = responses[micro_batch_inds]
                         mb_query_responses = query_responses[micro_batch_inds]
-                        stream1 = torch.cuda.Stream()
-                        stream2 = torch.cuda.Stream()
+                        with torch.no_grad():
+                            ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
+                            ref_logits = ref_output.logits[:, context_length - 1 : -1]
+                            ref_logits /= args.temperature + 1e-7
+                            ref_all_logprobs = F.log_softmax(ref_logits, dim=-1)
+                            ref_logprobs = torch.gather(ref_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
+                            ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
+
                         with accelerator.accumulate(model):
-                            with torch.no_grad():
-                                with torch.cuda.stream(stream1):
-                                    ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
-                                    ref_logits = ref_output.logits[:, context_length - 1 : -1]
-                                    ref_logits /= args.temperature + 1e-7
-                                    ref_all_logprobs = F.log_softmax(ref_logits, dim=-1)
-                                    ref_logprobs = torch.gather(ref_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
-                                    ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
-
-
-                            with torch.cuda.stream(stream2):
-                                output = forward(model, mb_query_responses, tokenizer.pad_token_id)
-                                logits = output.logits[:, context_length - 1 : -1]
-                                logits /= args.temperature + 1e-7
-                                new_all_logprobs = F.log_softmax(logits, dim=-1)
-                                new_logprobs = torch.gather(new_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
-                                new_logprobs = torch.masked_fill(
-                                    new_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB
-                                )
-                            torch.cuda.synchronize()
+                            output = forward(model, mb_query_responses, tokenizer.pad_token_id)
+                            logits = output.logits[:, context_length - 1 : -1]
+                            logits /= args.temperature + 1e-7
+                            new_all_logprobs = F.log_softmax(logits, dim=-1)
+                            new_logprobs = torch.gather(new_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
+                            new_logprobs = torch.masked_fill(
+                                new_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB
+                            )
                             # KG: compute approx kl
                             kl = 0.5 * (new_logprobs - ref_logprobs)**2
                             kl = kl.sum(1)
