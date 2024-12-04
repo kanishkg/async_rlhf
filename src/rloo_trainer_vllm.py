@@ -338,7 +338,7 @@ class RLOOTrainer(Trainer):
                     prompt_Q.put(g_queries_list)
                     # g_response_ids = response_ids_Q.get()
                     # dummy g_response_ids for debugging
-                    output_token_ids = [[[5 for _ in range(2000)] for _ in range(args.rloo_k)] for _ in range(queries.shape[0])]
+                    output_token_ids = [[[5 for _ in range(2000)] for _ in range(args.rloo_k)] for _ in range(queries.shape[0]*2)]
                     
 
                     # output_token_ids = [[list(output.token_ids) for output in response.outputs] for response in g_response_ids]

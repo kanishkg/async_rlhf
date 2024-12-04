@@ -80,7 +80,9 @@ if __name__ == "__main__":
         os.environ["WANDB_RUN_ID"] = args.wandb_run_id
         wandb_init_kwargs = {"name": args.wandb_run_id, "entity": os.environ.get("WANDB_ENTITY"), "project": os.environ.get("WANDB_PROJECT")}
     
-    wandb.init(**wandb_init_kwargs)
+    accelerator = Accelerator()
+    if accelerator.is_main_process:
+        wandb.init(**wandb_init_kwargs)
 
     ################
     # Model & Tokenizer
