@@ -362,6 +362,8 @@ class RLOOTrainer(Trainer):
                 ]
                 context_length = repeated_queries.shape[1]
                 query_responses = torch.cat((repeated_queries, local_vllm_responses), 1)
+                query_responses = query_responses.to(device)
+                repeated_queries = repeated_queries.to(device)
 
                 for i in range(0, queries.shape[0], args.local_rollout_forward_batch_size):
                     query = repeated_queries[i : i + args.local_rollout_forward_batch_size]
