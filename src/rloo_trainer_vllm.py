@@ -446,6 +446,20 @@ class RLOOTrainer(Trainer):
             print(f"===training policy===")
             start_time = time.time()
             kl_coeff = torch.tensor(args.kl_coef, device=device)
+            
+
+
+            print(f"ref")
+            with torch.no_grad():
+                # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
+                # NOTE (kg): we should change it to use model() instead of forward()
+                ref_output = forward(ref_policy, query_responses, tokenizer.pad_token_id)
+                ref_logits = ref_output.logits[:, context_length - 1 : -1]
+                ref_logits /= args.temperature + 1e-7
+                ref_all_logprobs = F.log_softmax(ref_logits, dim=-1)
+                ref_logprobs = torch.gather(ref_all_logprobs, 2, responses.unsqueeze(-1)).squeeze(-1)
+                ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask, INVALID_LOGPROB)
+
             # Do multiple epochs of PPO training, with a fresh random shuffle in each epoch
             for ppo_epoch_idx in range(args.num_ppo_epochs):
                 b_inds = np.random.permutation(args.local_batch_size)
@@ -462,17 +476,9 @@ class RLOOTrainer(Trainer):
                         mb_responses = responses[micro_batch_inds]
                         mb_query_responses = query_responses[micro_batch_inds]
 
-                    
-                        print(f"ref")
-                        with torch.no_grad():
-                            # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
-                            # NOTE (kg): we should change it to use model() instead of forward()
-                            ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
-                            ref_logits = ref_output.logits[:, context_length - 1 : -1]
-                            ref_logits /= args.temperature + 1e-7
-                            ref_all_logprobs = F.log_softmax(ref_logits, dim=-1)
-                            ref_logprobs = torch.gather(ref_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
-                            ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
+                        mb_ref_logprobs = ref_logprobs[micro_batch_inds]
+
+
 
                         print(f"policy")
                         with accelerator.accumulate(model):
@@ -487,7 +493,7 @@ class RLOOTrainer(Trainer):
                                 new_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB
                             )
                             # KG: compute approx kl
-                            kl = 0.5 * (new_logprobs - ref_logprobs)**2
+                            kl = 0.5 * (new_logprobs - mb_ref_logprobs)**2
                             kl = kl.sum(1)
 
 
