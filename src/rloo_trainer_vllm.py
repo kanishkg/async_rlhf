@@ -531,7 +531,6 @@ class RLOOTrainer(Trainer):
                             # KG: compute approx kl
                             kl = 0.5 * (new_logprobs - mb_ref_logprobs)**2
                             kl = kl.sum(1)
-                            print(f"{kl=}")
 
                             # loss, pg_loss, kl = fused_loss_computation(new_logprobs, ref_logprobs, mb_advantage, kl_coeff)
                             new_logprobs = new_logprobs.sum(1)
