@@ -85,7 +85,7 @@ if __name__ == "__main__":
         import datetime
         wandb.init(project="rloo",
                    name="rloo_countdown",
-                   id=f"rloo_countdown_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                   id=f"rloo_countdown_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}",
                    entity="cocolab")
 
 
