@@ -344,6 +344,7 @@ class RLOOTrainer(Trainer):
                     start_time = time.time()
                     # param_Q.put(unwrapped_model.named_parameters())
                     model_named_parameters = accelerator._get_named_parameters(model)
+                    print(model_named_parameters.keys())
                     # param_Q.put(model_named_parameters)
                     g_queries_list = [
                         [inneritem for inneritem in item if inneritem != tokenizer.pad_token_id]
