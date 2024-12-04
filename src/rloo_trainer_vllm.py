@@ -573,13 +573,11 @@ class RLOOTrainer(Trainer):
                     )
                     # fmt: on
                     torch.cuda.empty_cache()
-                # accelerator.print(
-                #     f"ppo_epoch_idx: {ppo_epoch_idx}",
-                #     f"approxkl: {approxkl_stats[:ppo_epoch_idx + 1].mean().item():.4f}",
-                #     f"pg_loss: {pg_loss_stats[:ppo_epoch_idx + 1].mean().item():.4f}",
-                #     f"pg_clipfrac: {pg_clipfrac_stats[:ppo_epoch_idx + 1].mean().item():.4f}",
-                #     f"ratio: {ratio_stats[:ppo_epoch_idx + 1].mean().item():.4f}",
-                # )
+                accelerator.print(
+                    f"ppo_epoch_idx: {ppo_epoch_idx}",
+                    f"approxkl: {approxkl_stats[:ppo_epoch_idx + 1].mean().item():.4f}",
+                    f"pg_loss: {pg_loss_stats[:ppo_epoch_idx + 1].mean().item():.4f}",
+                )
             print(f"===training policy time = {time.time()-start_time}===")
             with torch.no_grad():
                 rlhf_reward_mean = self.accelerator.gather(rlhf_reward).mean().item()
