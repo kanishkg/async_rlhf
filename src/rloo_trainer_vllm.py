@@ -394,7 +394,7 @@ class RLOOTrainer(Trainer):
                 query_responses = torch.cat((repeated_queries, local_vllm_responses), 1)
                 query_responses = query_responses.to(device)
                 repeated_queries = repeated_queries.to(device)
-
+                start_time = time.time()
                 for i in range(0, queries.shape[0], args.local_rollout_forward_batch_size):
                     query = repeated_queries[i : i + args.local_rollout_forward_batch_size]
                     query_response = query_responses[i : i + args.local_rollout_forward_batch_size]
@@ -425,11 +425,7 @@ class RLOOTrainer(Trainer):
                             score.append(s)
                     del postprocessed_query_response
                         
-                    print(f"ref {accelerator.local_process_index}, i = {i}, {queries.shape[0]}, on device: {device}")
-                    print(f"Process {accelerator.local_process_index}: ref_policy device: {next(ref_policy.parameters()).device}")
-                    print(f"Process {accelerator.local_process_index}: query_response device: {query_response.device}")
 
-                    start_time = time.time()
                     with torch.no_grad():
                         # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
                         # NOTE (kg): we should change it to use model() instead of forward()
@@ -438,7 +434,6 @@ class RLOOTrainer(Trainer):
                         ref_logits /= args.temperature + 1e-7
                         ref_all_logprob = F.log_softmax(ref_logits, dim=-1)
                         ref_logprob = torch.gather(ref_all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
-                    print(f"ref {accelerator.local_process_index}, i = {i}, {queries.shape[0]} time = {time.time()-start_time} on device: {device}")
 
                     del ref_output, ref_logits, ref_all_logprob
                     gc.collect()
@@ -455,6 +450,8 @@ class RLOOTrainer(Trainer):
                 sequence_lengths = torch.cat(sequence_lengths, 0)
                 scores = torch.cat(scores, 0)
                 ref_logprobs = torch.cat(ref_logprobs, 0)
+
+                print(f"ref {accelerator.local_process_index}, time = {time.time()-start_time} on device: {device}")
                 torch.cuda.empty_cache()
 
                 # Response Processing 3. filter response. Ensure that the sample contains truncate_token_id
@@ -525,7 +522,6 @@ class RLOOTrainer(Trainer):
 
 
 
-                        print(f"policy")
                         with accelerator.accumulate(model):
                             # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
                             # NOTE (kg): we should change it to use model() instead of forward()
@@ -542,7 +538,6 @@ class RLOOTrainer(Trainer):
                             kl = kl.sum(1)
 
 
-                            print("policy loss")
                             # loss, pg_loss, kl = fused_loss_computation(new_logprobs, ref_logprobs, mb_advantage, kl_coeff)
                             new_logprobs = new_logprobs.sum(1)
 
@@ -551,7 +546,6 @@ class RLOOTrainer(Trainer):
                             pg_loss = pg_loss.mean() 
                             loss = pg_loss + kl_coeff * kl.mean()
 
-                            print("backward")
                             accelerator.backward(loss)
                             optimizer.step()
                             optimizer.zero_grad()
