@@ -299,22 +299,22 @@ class RLOOTrainer(Trainer):
             #     ),
             # )
             # thread.start()
-            def vllm_process_function():
-                try:
-                    vllm_generate(
-                        args.sft_model_path,
-                        self.sampling_params,
-                        vllm_device,
-                        "bfloat16",
-                        0.95,
-                        param_Q,
-                        prompt_Q,
-                        response_ids_Q,
-                    )
-                except Exception as e:
-                    print(f"Exception in vllm_generate process: {e}")
+            # def vllm_process_function():
+            #     try:
+            #         vllm_generate(
+            #             args.sft_model_path,
+            #             self.sampling_params,
+            #             vllm_device,
+            #             "bfloat16",
+            #             0.95,
+            #             param_Q,
+            #             prompt_Q,
+            #             response_ids_Q,
+            #         )
+            #     except Exception as e:
+            #         print(f"Exception in vllm_generate process: {e}")
 
-            process = Process(target=vllm_process_function)
+            process = Process(target=vllm_generate, args=(args.sft_model_path, self.sampling_params, vllm_device, "bfloat16", 0.95, param_Q, prompt_Q, response_ids_Q))
             process.start()
 
         accelerator.wait_for_everyone()
