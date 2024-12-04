@@ -144,6 +144,7 @@ def _init_executor(self) -> None:
     assert self.parallel_config.world_size == 1, "GPUExecutor only supports single GPU."
 
     print("🔥🔥🔥 GPUExecutor only supports single GPU.")
+    print(f"{self.device_config.device.index=}")
     self.driver_worker = self._create_worker(local_rank=self.device_config.device.index)
     print("created worker")
     self.driver_worker.init_device()
