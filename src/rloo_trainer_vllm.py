@@ -426,21 +426,10 @@ class RLOOTrainer(Trainer):
                     del postprocessed_query_response
                         
 
-                    with torch.no_grad():
-                        # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
-                        # NOTE (kg): we should change it to use model() instead of forward()
-                        ref_output = forward(ref_policy, query_response, tokenizer.pad_token_id)
-                        ref_logits = ref_output.logits[:, context_length - 1 : -1]
-                        # ref_logits /= args.temperature + 1e-7
-                        ref_all_logprob = F.log_softmax(ref_logits, dim=-1)
-                        ref_logprob = torch.gather(ref_all_logprob, 2, response.unsqueeze(-1)).squeeze(-1)
 
-                    del ref_output, ref_logits, ref_all_logprob
-                    gc.collect()
-                    torch.cuda.empty_cache()
 
                     responses.append(response)
-                    ref_logprobs.append(ref_logprob)
+                    # ref_logprobs.append(ref_logprob)
                     postprocessed_responses.append(postprocessed_response)
                     sequence_lengths.append(sequence_length)
                     scores.append(torch.tensor(score))
@@ -449,7 +438,7 @@ class RLOOTrainer(Trainer):
                 postprocessed_responses = torch.cat(postprocessed_responses, 0)
                 sequence_lengths = torch.cat(sequence_lengths, 0)
                 scores = torch.cat(scores, 0)
-                ref_logprobs = torch.cat(ref_logprobs, 0)
+                # ref_logprobs = torch.cat(ref_logprobs, 0)
 
                 print(f"ref {accelerator.local_process_index}, time = {time.time()-start_time} on device: {device}")
                 torch.cuda.empty_cache()
@@ -466,7 +455,6 @@ class RLOOTrainer(Trainer):
                 response_idxs = torch.arange(responses.shape[1], device=responses.device).repeat(responses.shape[0], 1)
                 padding_mask = response_idxs > sequence_lengths.unsqueeze(1)
                 # logprobs = torch.masked_fill(logprobs, padding_mask, INVALID_LOGPROB)
-                ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask, INVALID_LOGPROB)
 
                 
                 # 4. compute rewards
@@ -513,13 +501,21 @@ class RLOOTrainer(Trainer):
                         mb_responses = responses[micro_batch_inds]
                         mb_query_responses = query_responses[micro_batch_inds]
 
-                        mb_ref_logprobs = ref_logprobs[micro_batch_inds]
+                        # mb_ref_logprobs = ref_logprobs[micro_batch_inds]
 
+                        with torch.no_grad():
+                            ref_output = forward(ref_policy, mb_query_responses, tokenizer.pad_token_id)
+                            ref_logits = ref_output.logits[:, context_length - 1 : -1]
+                            # ref_logits /= args.temperature + 1e-7
+                            ref_all_logprobs = F.log_softmax(ref_logits, dim=-1)
+                            ref_logprobs = torch.gather(ref_all_logprobs, 2, mb_responses.unsqueeze(-1)).squeeze(-1)
+                            ref_logprobs = torch.masked_fill(ref_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB)
+
+                        del ref_output, ref_logits, ref_all_logprobs
+                        torch.cuda.empty_cache()
 
 
                         with accelerator.accumulate(model):
-                            # NOTE (kg): forward pass might be slow, as pass attentions mask, pos ids. torch compile cant handle this
-                            # NOTE (kg): we should change it to use model() instead of forward()
                             output = forward(model, mb_query_responses, tokenizer.pad_token_id)
                             logits = output.logits[:, context_length - 1 : -1]
                             # logits /= args.temperature + 1e-7
@@ -529,7 +525,7 @@ class RLOOTrainer(Trainer):
                                 new_logprobs, padding_mask[micro_batch_inds], INVALID_LOGPROB
                             )
                             # KG: compute approx kl
-                            kl = 0.5 * (new_logprobs - mb_ref_logprobs)**2
+                            kl = 0.5 * (new_logprobs - ref_logprobs)**2
                             kl = kl.sum(1)
 
                             # loss, pg_loss, kl = fused_loss_computation(new_logprobs, ref_logprobs, mb_advantage, kl_coeff)
@@ -555,11 +551,12 @@ class RLOOTrainer(Trainer):
                     # del everything and empty cache
                     # fmt: off
                     del (
-                        output, logits, new_all_logprobs, new_logprobs,
+                        output, logits, new_all_logprobs, new_logprobs, ref_logprobs,
                         pg_loss, loss, prob_dist, approxkl,
                         mb_advantage, mb_responses, mb_query_responses,
                     )
                     # fmt: on
+                    gc.collect()
                     torch.cuda.empty_cache()
                 accelerator.print(
                     f"ppo_epoch_idx: {ppo_epoch_idx}",
