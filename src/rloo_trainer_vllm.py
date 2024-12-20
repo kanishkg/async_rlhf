@@ -331,6 +331,7 @@ class RLOOTrainer(Trainer):
                 query_responses = []
                 responses = []
                 postprocessed_responses = []
+                all_response_lens = 0
                 logprobs = []
                 ref_logprobs = []
                 scores = []
