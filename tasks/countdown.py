@@ -229,7 +229,7 @@ def create_countdown_datasets(
     eval_size=500,
 ):
     random.seed(seed)
-    countdown = CountDown(start_probs=[0.3, 0.7, 0.0], max_target=50, min_target=10)
+    countdown = CountDown(start_probs=[0.3, 0.7, 0.0], max_target=25, min_target=10)
 
     train_data = []
     val_data = []

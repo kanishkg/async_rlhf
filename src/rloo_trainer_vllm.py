@@ -378,12 +378,14 @@ class RLOOTrainer(Trainer):
                         list(response) + [DUMMY_PAD_TOKEN] * (args.response_length - len(response))
                         for response in output_token_ids 
                     ]
+                    all_response_lens = sum([len(response) for response in output_token_ids])
                     g_padded_response_ids = torch.tensor(g_padded_response_ids, device=device)
                     vllm_responses[:] = g_padded_response_ids
 
 
                 # accelerator.wait_for_everyone()
                 broadcast(vllm_responses, 0)
+                broadcast(all_response_lens, 0)
                 # accelerator.wait_for_everyone()
 
                 local_vllm_responses = vllm_responses[
@@ -535,6 +537,8 @@ class RLOOTrainer(Trainer):
                             pg_loss = -mb_advantage * new_logprobs
                             pg_loss = pg_loss.mean() 
                             loss = pg_loss + kl_coef * kl.mean()
+                            # Normalize the loss by the number of response tokens
+                            loss = loss / all_response_lens
 
                             accelerator.backward(loss)
                             optimizer.step()
