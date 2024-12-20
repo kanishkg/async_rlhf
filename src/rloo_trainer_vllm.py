@@ -539,7 +539,7 @@ class RLOOTrainer(Trainer):
                             pg_loss = pg_loss.mean() 
                             loss = pg_loss + kl_coef * kl.mean()
                             # Normalize the loss by the number of response tokens
-                            loss = loss / all_response_lens[0]
+                            # loss = loss / all_response_lens[0]
 
                             accelerator.backward(loss)
                             optimizer.step()
