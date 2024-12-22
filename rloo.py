@@ -66,6 +66,7 @@ if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
     parser = TRLParser((ScriptArguments, RLOOConfig, ModelConfig))
     args, config, model_config = parser.parse_args_and_config()
+    config.clip_reward = args.clip_reward
     if args.output_global_parent_dir is not None:
         run_id = os.path.basename(os.getcwd())
         config.output_dir = os.path.join(args.output_global_parent_dir, run_id, config.output_dir)
