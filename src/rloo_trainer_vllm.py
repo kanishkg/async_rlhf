@@ -535,6 +535,8 @@ class RLOOTrainer(Trainer):
                             new_logprobs = new_logprobs.sum(1)
 
                             # KG: We should add kl directly to the loss
+                            if args.clip_reward:
+                                mb_advantage = torch.clamp(mb_advantage, min=0)
                             pg_loss = -mb_advantage * new_logprobs
                             pg_loss = pg_loss.mean() 
                             loss = pg_loss + kl_coef * kl.mean()

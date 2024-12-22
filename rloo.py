@@ -40,6 +40,7 @@ class ScriptArguments:
     vllm: bool = field(default=False)
     bok: bool = field(default=False)
     reward_fn: str = field(default=None, metadata={"help": "The reward function to use"})
+    clip_reward: bool = field(default=False, metadata={"help": "Clip the reward to 0 or 1"})
     wandb_run_id: Optional[str] = field(default=None)
 
 
