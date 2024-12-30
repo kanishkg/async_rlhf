@@ -2,11 +2,12 @@ compute_environment: LOCAL_MACHINE
 debug: false
 deepspeed_config:
   deepspeed_multinode_launcher: standard
-  gradient_accumulation_steps: 16
+  gradient_accumulation_steps: 8
   offload_optimizer_device: cpu
   offload_param_device: none
   zero3_init_flag: false
   zero_stage: 2
+  main_process_port: 29601
 distributed_type: DEEPSPEED
 downcast_bf16: 'no'
 machine_rank: 0

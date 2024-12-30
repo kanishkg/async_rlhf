@@ -3,7 +3,7 @@ debug: false
 deepspeed_config:
   # Core configs
   deepspeed_multinode_launcher: standard
-  gradient_accumulation_steps: 16
+  gradient_accumulation_steps: 32
   zero_stage: 2
 
   # Memory optimizations
@@ -26,18 +26,9 @@ deepspeed_config:
   gradient_clipping: 1.0
   
   # Communication optimizations  
-  communication_data_type: "fp16"
+  communication_data_type: "bf16"
   round_robin_gradients: true
   
-  # Scheduling
-  scheduler:
-    type: WarmupDecayLR
-    params:
-      warmup_min_lr: 0
-      warmup_max_lr: 3e-4
-      warmup_num_steps: 100
-      total_num_steps: 1000
-
   # Performance optimizations
   steps_per_print: 100
   wall_clock_breakdown: false
